@@ -1,0 +1,12 @@
+{
+  "$schema": "https://dkcutter.ncontiero.com/schema.json",
+  "postgresVersion": {
+    "value": "13",
+    "promptMessage": "What PostgreSQL version would you like to use? (e.g. 15, 17.6)",
+    "validateRegex": {
+      "regex": "^(?:[1-9]\\d*(.[1-9]\\d*)?|latest)$",
+      "message": "Invalid PostgreSQL version."
+    }
+  },
+  "_postgresMajorVersion": "{{ postgresVersion.split('.')[0]|int }}"
+}

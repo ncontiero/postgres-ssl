@@ -1,0 +1,19 @@
+# Generated: {{ dkcutter.now.toLocaleDateString() }}
+# postgres version: {{ dkcutter.postgresVersion }}
+ARG POSTGRES_VERSION={{ dkcutter.postgresVersion }}
+FROM postgres:${POSTGRES_VERSION}
+
+LABEL org.opencontainers.image.authors="Nicolas Contiero <https://github.com/ncontiero>"
+
+# Install OpenSSL and sudo
+RUN apt-get update && apt-get install -y openssl sudo
+
+# Allow the postgres user to execute certain commands as root without a password
+RUN echo "postgres ALL=(root) NOPASSWD: /usr/bin/mkdir, /bin/chown, /usr/bin/openssl" > /etc/sudoers.d/postgres
+
+# Add init scripts while setting permissions
+COPY --chmod=755 ./init-ssl.sh /docker-entrypoint-initdb.d/init-ssl.sh
+COPY --chmod=755 ./wrapper.sh /usr/local/bin/wrapper.sh
+
+ENTRYPOINT ["wrapper.sh"]
+CMD ["postgres", "-p", "5432", "-c", "listen_addresses=*"]

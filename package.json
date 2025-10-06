@@ -1,0 +1,32 @@
+{
+  "name": "postgres-ssl",
+  "type": "module",
+  "version": "1.0.0",
+  "packageManager": "pnpm@10.18.0",
+  "description": "This repository contains the logic to build SSL-enabled Postgres images.",
+  "author": "Nicolas Contiero <https://github.com/ncontiero>",
+  "license": "MIT",
+  "scripts": {
+    "generate": "dkcutter .",
+    "generate-matrix": "tsx scripts/generate-matrix.ts",
+    "lint": "eslint .",
+    "lint:fix": "pnpm lint --fix",
+    "typecheck": "tsc --noEmit",
+    "check": "pnpm lint && pnpm typecheck"
+  },
+  "dependencies": {
+    "dkcutter": "5.0.5"
+  },
+  "devDependencies": {
+    "@ncontiero/eslint-config": "6.2.1",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^24.6.2",
+    "colorette": "^2.0.20",
+    "eslint": "^9.36.0",
+    "fs-extra": "^11.3.2",
+    "tsx": "^4.20.6"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}
