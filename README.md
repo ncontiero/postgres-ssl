@@ -2,7 +2,17 @@
 
 This repository contains the logic to build SSL-enabled Postgres images.
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/postgres)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/h1x7es?referralCode=7y-eBI)
+
+> [!IMPORTANT]
+> **Note on Volume Mount Point Change for PostgreSQL 18+**
+>
+> For images based on **PostgreSQL 18 or newer**, the volume mount point has been changed from `/var/lib/postgresql/data` to `/var/lib/postgresql`.
+>
+> - **PostgreSQL 18+**: Use `-v my-volume:/var/lib/postgresql`
+> - **PostgreSQL 17 and older**: Use `-v my-volume:/var/lib/postgresql/data`
+>
+> The [Railway template](https://railway.com/deploy/h1x7es?referralCode=7y-eBI) uses version 18 by default, so this note is especially relevant for users of that platform.
 
 ## How does it work?
 
