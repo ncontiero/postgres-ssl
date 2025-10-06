@@ -59,7 +59,7 @@ jobs:
         id: generate
 
   build:
-    name: Build Postgres ${{ matrix.postgres_version }}
+    name: Build Postgres ${{ matrix.version }}
     runs-on: ubuntu-latest
     needs: generate-matrix
     permissions:
@@ -69,7 +69,7 @@ jobs:
 
     strategy:
       matrix:
-        postgres_version: ${{ fromJSON(needs.generate-matrix.outputs.versions) }}
+        include: ${{ fromJSON(needs.generate-matrix.outputs.versions) }}
 
     steps:
       - name: Checkout repo
@@ -87,7 +87,7 @@ jobs:
         run: pnpm install
 
       - name: Generate Dockerfile
-        run: pnpm generate -y -f --postgresVersion ${{ matrix.postgres_version }}
+        run: pnpm generate -y -f --postgresVersion ${{ matrix.version }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -109,13 +109,14 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           # Defining this makes sure the org.opencontainers.image.version OCI label becomes the actual release version and not the branch name
           tags: |
-            type=raw,value=${{ matrix.postgres_version }},priority=1000
-            type=match,pattern=^(\d+)\..*,group=1,value=${{ matrix.postgres_version }}
+            type=raw,value=latest,enable=${{ matrix.is_latest }}
+            type=raw,value=${{ matrix.version }},priority=1000
+            type=match,pattern=^(\d+)\..*,group=1,value=${{ matrix.version }}
 
       - name: Build and Push image
         uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.postgres_version }}
+          context: ${{ matrix.version }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}

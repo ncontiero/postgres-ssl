@@ -6,12 +6,21 @@ import { logger } from "../hooks/utils/logger";
 const DOCKER_HUB_API_URL =
   "https://hub.docker.com/v2/repositories/library/postgres/tags/?page_size=100";
 const POSTGRES_MAJOR_VERSIONS = [13, 14, 15, 16, 17, 18];
+const LATEST_POSTGRES_VERSION = Math.max(...POSTGRES_MAJOR_VERSIONS);
 
 /**
  * Interface for the Docker Hub API response for a single tag.
  */
 interface DockerTag {
   name: string;
+}
+
+/**
+ * Interface for the output matrix object.
+ */
+interface MatrixEntry {
+  version: string;
+  is_latest: boolean;
 }
 
 /**
@@ -88,20 +97,27 @@ async function generateMatrix() {
     process.exit(1);
   }
 
-  const finalVersions: string[] = [];
+  const matrixPayload: MatrixEntry[] = [];
 
   for (const major of POSTGRES_MAJOR_VERSIONS) {
     const latestVersion = findLatestMinorVersion(major, allTags);
     if (latestVersion) {
-      finalVersions.push(latestVersion);
-      logger.info(`Found latest minor for major ${major}: ${latestVersion}`);
+      const isLatestMajor = major === LATEST_POSTGRES_VERSION;
+
+      matrixPayload.push({
+        version: latestVersion,
+        is_latest: isLatestMajor,
+      });
+
+      logger.info(
+        `Found latest minor for major ${major}: ${latestVersion} (is_latest: ${isLatestMajor})`,
+      );
     } else {
       logger.warn(`Could not find any minor version for major ${major}.`);
     }
   }
 
-  finalVersions.push("latest");
-  logger.info(`Final version matrix: [${finalVersions.join(", ")}]`);
+  logger.info(`Final matrix payload: ${JSON.stringify(matrixPayload)}`);
 
   const githubOutput = process.env.GITHUB_OUTPUT;
   if (!githubOutput) {
@@ -111,7 +127,7 @@ async function generateMatrix() {
     process.exit(1);
   }
 
-  const outputJson = JSON.stringify(finalVersions);
+  const outputJson = JSON.stringify(matrixPayload);
   await fs.appendFile(githubOutput, `versions=${outputJson}\n`);
 }
 
