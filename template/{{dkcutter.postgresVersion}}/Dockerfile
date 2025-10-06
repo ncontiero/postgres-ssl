@@ -3,8 +3,6 @@
 ARG POSTGRES_VERSION={{ dkcutter.postgresVersion }}
 FROM postgres:${POSTGRES_VERSION}
 
-LABEL org.opencontainers.image.authors="Nicolas Contiero <https://github.com/ncontiero>"
-
 # Install OpenSSL and sudo
 RUN apt-get update && apt-get install -y openssl sudo
 

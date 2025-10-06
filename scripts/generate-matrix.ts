@@ -91,7 +91,7 @@ async function generateMatrix() {
   const finalVersions: string[] = [];
 
   for (const major of POSTGRES_MAJOR_VERSIONS) {
-    finalVersions.push(`${major}`);
+    // finalVersions.push(`${major}`);
 
     const latestVersion = findLatestMinorVersion(major, allTags);
     if (latestVersion) {
