@@ -112,7 +112,6 @@ jobs:
             type=raw,value=${{ matrix.postgres_version }},priority=1000
             type=match,pattern=^(\d+)\..*,group=1,value=${{ matrix.postgres_version }}
 
-
       - name: Build and Push image
         uses: docker/build-push-action@v6
         with:

@@ -58,7 +58,7 @@ function findLatestMinorVersion(
   tags: string[],
 ): string | null {
   // Regex to match "major.minor" formats (e.g., 16.1, 15.5) and avoid variants like "16-alpine".
-  const versionRegex = /^[1-9]\d*\.[1-9]\d*$/;
+  const versionRegex = /^[1-9]\d*\.\d+$/;
 
   const relevantVersions = tags
     .filter(
@@ -91,8 +91,6 @@ async function generateMatrix() {
   const finalVersions: string[] = [];
 
   for (const major of POSTGRES_MAJOR_VERSIONS) {
-    // finalVersions.push(`${major}`);
-
     const latestVersion = findLatestMinorVersion(major, allTags);
     if (latestVersion) {
       finalVersions.push(latestVersion);
