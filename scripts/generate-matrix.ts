@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import fs from "fs-extra";
 
 import { logger } from "../hooks/utils/logger";
 
@@ -11,7 +11,7 @@ const POSTGRES_MAJOR_VERSIONS = [13, 14, 15, 16, 17, 18];
  * Interface for the Docker Hub API response for a single tag.
  */
 interface DockerTag {
-  name: string; 
+  name: string;
 }
 
 /**
@@ -106,7 +106,7 @@ async function generateMatrix() {
   const githubOutput = process.env.GITHUB_OUTPUT;
   if (!githubOutput) {
     logger.error(
-      "GITHUB_OUTPUT environment variable not set. Skipping output."
+      "GITHUB_OUTPUT environment variable not set. Skipping output.",
     );
     process.exit(1);
   }
