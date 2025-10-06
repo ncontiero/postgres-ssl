@@ -2,7 +2,7 @@
   "name": "postgres-ssl",
   "type": "module",
   "version": "1.0.0",
-  "packageManager": "pnpm@10.18.0",
+  "packageManager": "pnpm@10.18.1",
   "description": "This repository contains the logic to build SSL-enabled Postgres images.",
   "author": "Nicolas Contiero <https://github.com/ncontiero>",
   "license": "MIT",
@@ -20,9 +20,9 @@
   "devDependencies": {
     "@ncontiero/eslint-config": "6.2.1",
     "@types/fs-extra": "^11.0.4",
-    "@types/node": "^24.6.2",
+    "@types/node": "^24.7.0",
     "colorette": "^2.0.20",
-    "eslint": "^9.36.0",
+    "eslint": "^9.37.0",
     "fs-extra": "^11.3.2",
     "tsx": "^4.20.6"
   },
