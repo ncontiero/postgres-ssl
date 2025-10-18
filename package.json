@@ -15,7 +15,7 @@
     "check": "pnpm lint && pnpm typecheck"
   },
   "dependencies": {
-    "dkcutter": "5.0.5"
+    "dkcutter": "5.0.6"
   },
   "devDependencies": {
     "@ncontiero/eslint-config": "6.2.1",
