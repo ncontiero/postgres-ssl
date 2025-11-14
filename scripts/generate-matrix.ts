@@ -5,7 +5,7 @@ import { logger } from "../hooks/utils/logger";
 // The Docker Hub API endpoint for the official postgres image tags.
 const DOCKER_HUB_API_URL =
   "https://hub.docker.com/v2/repositories/library/postgres/tags/?page_size=100";
-const POSTGRES_MAJOR_VERSIONS = [13, 14, 15, 16, 17, 18];
+const POSTGRES_MAJOR_VERSIONS = [14, 15, 16, 17, 18];
 const LATEST_POSTGRES_VERSION = Math.max(...POSTGRES_MAJOR_VERSIONS);
 
 /**
