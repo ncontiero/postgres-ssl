@@ -1,70 +1,96 @@
 #!/bin/bash
 
-# exit as soon as any of these commands fail, this prevents starting a database without certificates or with the wrong volume mount path
+# Exit as soon as any command fails to prevent starting a database in a bad state.
 set -e
 
-EXPECTED_VOLUME_MOUNT_PATH="/var/lib/postgresql{{ '/data' if dkcutter._postgresMajorVersion < 18 }}"
+# ==============================================================================
+# FUNCTION DEFINITIONS
+# ==============================================================================
 
-# check if the Railway volume is mounted to the correct path
-# we do this by checking the current mount path (RAILWAY_VOLUME_MOUNT_PATH) against the expected mount path
-# if the paths are different, we print an error message and exit
-# only perform this check if this image is deployed to Railway by checking for the existence of the RAILWAY_ENVIRONMENT variable
-if [ -n "$RAILWAY_ENVIRONMENT" ] && [ "$RAILWAY_VOLUME_MOUNT_PATH" != "$EXPECTED_VOLUME_MOUNT_PATH" ]; then
-  echo "Railway volume not mounted to the correct path, expected $EXPECTED_VOLUME_MOUNT_PATH but got $RAILWAY_VOLUME_MOUNT_PATH"
-  echo "Please update the volume mount path to the expected path and redeploy the service"
-  exit 1
-fi
+# Validates that the environment is set up correctly, specifically for Railway deployments.
+# Checks for correct volume mount paths to prevent data loss.
+validate_environment() {
+  echo "Validating environment..."
+  local expected_volume_mount_path="/var/lib/postgresql{{ '/data' if dkcutter._postgresMajorVersion < 18 }}"
 
-# check if PGDATA starts with the expected volume mount path
-# this ensures data files are stored in the correct location
-# if not, print error and exit to prevent data loss or access issues
-if [[ ! "$PGDATA" =~ ^"$EXPECTED_VOLUME_MOUNT_PATH" ]]; then
-  echo "PGDATA variable does not start with the expected volume mount path, expected to start with $EXPECTED_VOLUME_MOUNT_PATH"
-  echo "Please update the PGDATA variable to start with the expected volume mount path and redeploy the service"
-  exit 1
-fi
+  # Check if running on Railway and if the volume mount path is correct.
+  if [ -n "$RAILWAY_ENVIRONMENT" ] && [ "$RAILWAY_VOLUME_MOUNT_PATH" != "$expected_volume_mount_path" ]; then
+    echo "ERROR: Railway volume not mounted to the correct path." >&2
+    echo "Expected: '$expected_volume_mount_path', but got: '$RAILWAY_VOLUME_MOUNT_PATH'." >&2
+    echo "Please update the volume mount path and redeploy." >&2
+    exit 1
+  fi
 
-# Set up needed variables
-SSL_DIR="$PGDATA/certs"
-INIT_SSL_SCRIPT="/docker-entrypoint-initdb.d/init-ssl.sh"
-POSTGRES_CONF_FILE="$PGDATA/postgresql.conf"
+  # Check if PGDATA is located within the expected volume mount path.
+  if [[ ! "$PGDATA" =~ ^"$expected_volume_mount_path" ]]; then
+    echo "ERROR: PGDATA does not start with the expected volume mount path." >&2
+    echo "Expected to start with: '$expected_volume_mount_path', but PGDATA is: '$PGDATA'." >&2
+    echo "Please update the PGDATA variable and redeploy." >&2
+    exit 1
+  fi
+}
 
-# Regenerate if the certificate is not a x509v3 certificate
-if [ -f "$SSL_DIR/server.crt" ] && ! openssl x509 -noout -text -in "$SSL_DIR/server.crt" | grep -q "DNS:localhost"; then
-  echo "Did not find a x509v3 certificate, regenerating certificates..."
-  bash "$INIT_SSL_SCRIPT"
-fi
+# Checks the status of SSL certificates and regenerates them if necessary.
+check_and_regenerate_certs() {
+  echo "Checking SSL certificate status..."
+  local ssl_dir="$PGDATA/certs"
+  local cert_file="$ssl_dir/server.crt"
+  local conf_file="$PGDATA/postgresql.conf"
+  local init_script="/docker-entrypoint-initdb.d/init-ssl.sh"
 
-# Regenerate if the certificate has expired or will expire
-# 2592000 seconds = 30 days
-if [ -f "$SSL_DIR/server.crt" ] && ! openssl x509 -checkend 2592000 -noout -in "$SSL_DIR/server.crt"; then
-  echo "Certificate has or will expire soon, regenerating certificates..."
-  bash "$INIT_SSL_SCRIPT"
-fi
+  # Case 1: Certificate exists but is not a valid v3 certificate (e.g., missing SAN).
+  if [ -f "$cert_file" ] && ! openssl x509 -noout -text -in "$cert_file" | grep -q "DNS:localhost"; then
+    echo "WARNING: A valid x509v3 certificate was not found. Regenerating certificates..."
+    bash "$init_script"
+    return
+  fi
 
-# Generate a certificate if the database was initialized but is missing a certificate
-# Useful when going from the base postgres image to this ssl image
-if [ -f "$POSTGRES_CONF_FILE" ] && [ ! -f "$SSL_DIR/server.crt" ]; then
-  echo "Database initialized without certificate, generating certificates..."
-  bash "$INIT_SSL_SCRIPT"
-fi
+  # Case 2: Certificate exists but is expired or will expire within 30 days (2592000 seconds).
+  if [ -f "$cert_file" ] && ! openssl x509 -checkend 2592000 -noout -in "$cert_file"; then
+    echo "WARNING: Certificate has expired or will expire soon. Regenerating certificates..."
+    bash "$init_script"
+    return
+  fi
 
-# unset PGHOST to force psql to use Unix socket path
-# this is specific to Railway and allows
-# us to use PGHOST after the init
+  # Case 3: Database is initialized but the certificate is missing.
+  if [ -f "$conf_file" ] && [ ! -f "$cert_file" ]; then
+    echo "WARNING: Database is initialized but certificate is missing. Generating certificates..."
+    bash "$init_script"
+    return
+  fi
+
+  echo "SSL certificate check passed."
+}
+
+# ==============================================================================
+# MAIN EXECUTION
+# ==============================================================================
+
+validate_environment
+check_and_regenerate_certs
+
+# Unset Railway-specific environment variables that can interfere with psql/postgres.
+# - PGHOST/PGPORT are used by Railway for proxying but can prevent local tools
+#   from using the Unix socket correctly during initialization.
+echo "Unsetting Railway-specific proxy variables for initialization..."
 unset PGHOST
-
-## unset PGPORT also specific to Railway
-## since postgres checks for validity of
-## the value in PGPORT we unset it in case
-## it ends up being empty
 unset PGPORT
 
-# Call the entrypoint script with the
-# appropriate PGHOST & PGPORT and redirect
-# the output to stdout if LOG_TO_STDOUT is true
+# Prepares the final 'postgres' command by injecting shared_preload_libraries if defined.
+if [ "$1" = 'postgres' ] && [ -n "$PG_SHARED_PRELOAD_LIBRARIES" ]; then
+  echo "Injecting shared_preload_libraries into startup command..."
+  # 'shift' removes 'postgres' from the arguments.
+  shift
+  # 'set --' rebuilds the argument list with our injected config.
+  set -- "postgres" "-c" "shared_preload_libraries=${PG_SHARED_PRELOAD_LIBRARIES}" "$@"
+fi
+
+# Execute the official postgres entrypoint script with the (potentially modified) arguments.
+# Using 'exec' replaces the shell process with the postgres process, ensuring that
+# the database becomes PID 1 and receives signals correctly.
+echo "Executing main postgres entrypoint: /usr/local/bin/docker-entrypoint.sh $@"
 if [[ "$LOG_TO_STDOUT" == "true" ]]; then
-  /usr/local/bin/docker-entrypoint.sh "$@" 2>&1
+  exec /usr/local/bin/docker-entrypoint.sh "$@" 2>&1
 else
-  /usr/local/bin/docker-entrypoint.sh "$@"
+  exec /usr/local/bin/docker-entrypoint.sh "$@"
 fi
