@@ -18,7 +18,7 @@
     "dkcutter": "5.0.6"
   },
   "devDependencies": {
-    "@ncontiero/eslint-config": "6.4.1",
+    "@ncontiero/eslint-config": "6.5.1",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^24.10.1",
     "colorette": "^2.0.20",
