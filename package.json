@@ -2,7 +2,7 @@
   "name": "postgres-ssl",
   "type": "module",
   "version": "1.0.0",
-  "packageManager": "pnpm@10.22.0",
+  "packageManager": "pnpm@10.24.0",
   "description": "This repository contains the logic to build SSL-enabled Postgres images.",
   "author": "Nicolas Contiero <https://github.com/ncontiero>",
   "license": "MIT",
