@@ -24,7 +24,7 @@
     "colorette": "^2.0.20",
     "eslint": "^9.39.1",
     "fs-extra": "^11.3.2",
-    "tsx": "^4.20.6",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "engines": {
