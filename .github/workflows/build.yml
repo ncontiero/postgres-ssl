@@ -114,7 +114,7 @@ jobs:
             type=match,pattern=^(\d+)\..*,group=1,value=${{ matrix.version }}
 
       - name: Build and Push image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.version }}
           platforms: linux/amd64,linux/arm64
