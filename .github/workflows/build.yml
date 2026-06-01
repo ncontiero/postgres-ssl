@@ -16,19 +16,14 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v6
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Setup node
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: pnpm install
+        run: bun install
 
       - name: Check Code
-        run: pnpm check
+        run: bun run check
 
   generate-matrix:
     name: Generate build matrix
@@ -43,19 +38,14 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Setup node
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: pnpm install
+        run: bun install
 
       - name: Generate build matrix
-        run: pnpm generate-matrix
+        run: bun run generate-matrix
         id: generate
 
   build:
@@ -75,19 +65,14 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v6
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Setup node
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: pnpm install
+        run: bun install
 
       - name: Generate Dockerfile
-        run: pnpm generate -y -f --postgresVersion ${{ matrix.version }}
+        run: bun run generate -y -f --postgresVersion ${{ matrix.version }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
