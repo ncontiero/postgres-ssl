@@ -1,7 +1,7 @@
 {
   "$schema": "https://dkcutter.ncontiero.com/schema.json",
   "postgresVersion": {
-    "value": "13",
+    "value": "18",
     "promptMessage": "What PostgreSQL version would you like to use? (e.g. 15, 17.6)",
     "validateRegex": {
       "regex": "^(?:[1-9]\\d*(.\\d+)?|latest)$",

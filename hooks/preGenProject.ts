@@ -1,4 +1,4 @@
-import { logger } from "./utils/logger";
+import { logger } from "dkcutter/utils";
 
 const postgresVersion: string = "{{ dkcutter.postgresVersion }}";
 const postgresMajorVersion = Number("{{ dkcutter._postgresMajorVersion }}");
