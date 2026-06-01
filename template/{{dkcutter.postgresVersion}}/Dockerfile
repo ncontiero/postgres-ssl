@@ -7,12 +7,10 @@ FROM postgres:${POSTGRES_VERSION}
 # 1. SYSTEM DEPENDENCIES
 # Install essential packages required for the entrypoint scripts and general use.
 # - openssl: For generating self-signed SSL certificates.
-# - sudo: Allows the 'postgres' user to perform specific root actions.
 # ==============================================================================
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         openssl \
-        sudo \
     && rm -rf /var/lib/apt/lists/*
 
 # ==============================================================================
@@ -95,17 +93,11 @@ ENV PG_DB_EXTENSIONS=$PG_DB_EXTENSIONS
 ENV PG_SHARED_PRELOAD_LIBRARIES=$PG_SHARED_PRELOAD_LIBRARIES
 
 # ==============================================================================
-# 3. PERMISSIONS & SCRIPTS
-# Configure permissions and copy the necessary initialization and wrapper scripts.
+# 3. SCRIPTS
+# Copy the necessary initialization and wrapper scripts.
 # ==============================================================================
 
-# --- Step 3.1: Configure Sudo ---
-# Allow the 'postgres' user to run specific commands as root without a password.
-# This is required by `init-ssl.sh` to create the SSL directory and set its
-# ownership, and by openssl to generate certificates.
-RUN echo "postgres ALL=(root) NOPASSWD: /usr/bin/mkdir, /bin/chown, /usr/bin/openssl" > /etc/sudoers.d/postgres
-
-# --- Step 3.2: Copy Scripts ---
+# --- Step 3.1: Copy Scripts ---
 # Copy the initialization scripts into the container.
 # - `init-*.sh` scripts are placed in `docker-entrypoint-initdb.d` to be
 #   executed automatically when the database is first created.

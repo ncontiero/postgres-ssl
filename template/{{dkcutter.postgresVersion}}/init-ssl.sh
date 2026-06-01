@@ -24,12 +24,9 @@ SSL_V3_EXT="$SSL_DIR/v3.ext"
 
 # ==============================================================================
 # 2. CREATE SSL DIRECTORY
-# The directory needs to be created by a user with root-level privileges,
-# then its ownership is transferred to the 'postgres' user.
 # ==============================================================================
 echo "Creating SSL certificate directory..."
-sudo mkdir -p "$SSL_DIR"
-sudo chown postgres:postgres "$SSL_DIR"
+mkdir -p "$SSL_DIR"
 
 # ==============================================================================
 # 3. GENERATE CERTIFICATE AUTHORITY (CA)
@@ -66,7 +63,7 @@ openssl req \
 chmod og-rwx "$SSL_SERVER_KEY"
 
 # ==============================================================================
-# 5. CREATE OPENSLL EXTENSIONS FILE
+# 5. CREATE OPENSSL EXTENSIONS FILE
 # This configuration file is needed to define the Subject Alternative Name (SAN),
 # allowing the certificate to be valid for 'localhost'.
 # ==============================================================================
@@ -113,6 +110,15 @@ ssl_cert_file = '$SSL_SERVER_CRT'
 ssl_key_file = '$SSL_SERVER_KEY'
 ssl_ca_file = '$SSL_ROOT_CRT'
 EOF
+fi
+
+# ==============================================================================
+# 8. ENSURE OWNERSHIP
+# Ensure all generated files are owned by the 'postgres' user.
+# This is particularly needed when the script is executed by root via wrapper.sh
+# ==============================================================================
+if [ "$(id -u)" = '0' ]; then
+  chown -R postgres:postgres "$SSL_DIR"
 fi
 
 echo "SSL initialization complete."
