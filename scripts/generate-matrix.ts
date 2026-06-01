@@ -8,6 +8,9 @@ const DOCKER_HUB_API_URL =
 const POSTGRES_MAJOR_VERSIONS = [14, 15, 16, 17, 18];
 const LATEST_POSTGRES_VERSION = Math.max(...POSTGRES_MAJOR_VERSIONS);
 
+// Regex to match "major.minor" formats (e.g., 16.1, 15.5) and avoid variants like "16-alpine".
+const VERSION_REGEX = /^[1-9]\d*\.\d+$/;
+
 /**
  * Interface for the Docker Hub API response for a single tag.
  */
@@ -66,12 +69,9 @@ function findLatestMinorVersion(
   majorVersion: number,
   tags: string[],
 ): string | null {
-  // Regex to match "major.minor" formats (e.g., 16.1, 15.5) and avoid variants like "16-alpine".
-  const versionRegex = /^[1-9]\d*\.\d+$/;
-
   const relevantVersions = tags
     .filter(
-      (tag) => tag.startsWith(`${majorVersion}.`) && versionRegex.test(tag),
+      (tag) => tag.startsWith(`${majorVersion}.`) && VERSION_REGEX.test(tag),
     )
     .sort((a, b) => {
       // Custom sort to handle version numbers correctly (e.g., 16.10 > 16.2)
