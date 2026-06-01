@@ -1,5 +1,4 @@
-import fs from "fs-extra";
-
+import fs from "node:fs/promises";
 import { logger } from "../hooks/utils/logger";
 
 // The Docker Hub API endpoint for the official postgres image tags.
