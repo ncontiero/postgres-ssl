@@ -2,7 +2,26 @@
 
 This repository contains the logic to build SSL-enabled Postgres images.
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/postgresql?referralCode=7y-eBI)
+## Railway Templates
+
+We offer two distinct templates for Railway deployments, depending on your needs:
+
+### 1. Standard PostgreSQL (Pre-built Image)
+
+This is the fastest way to get started. It uses our pre-built image from the GitHub Container Registry (`ghcr.io`). Use this if you just need a standard PostgreSQL database with SSL enabled.
+
+[![Deploy Standard Postgres on Railway](https://railway.com/button.svg)](https://railway.com/deploy/postgresql?referralCode=7y-eBI)
+
+### 2. PostgreSQL with Custom Extensions (Build from Source)
+
+This template builds the image directly on Railway using a specific `Dockerfile` from this repository, allowing you to install and enable custom PostgreSQL extensions via Docker build arguments. Due to volume mount point changes in PostgreSQL 18, we provide two directories:
+
+- **PostgreSQL 18+**: Uses the `with-extensions` directory.
+- **PostgreSQL 17 and older**: Uses the `with-extensions-older` directory.
+
+[![Deploy Postgres with Extensions on Railway](https://railway.com/button.svg)](#) _(Template link coming soon)_
+
+---
 
 > [!IMPORTANT]
 > **Note on Volume Mount Point Change for PostgreSQL 18+**
@@ -12,7 +31,7 @@ This repository contains the logic to build SSL-enabled Postgres images.
 > - **PostgreSQL 18+**: Use `-v my-volume:/var/lib/postgresql`
 > - **PostgreSQL 17 and older**: Use `-v my-volume:/var/lib/postgresql/data`
 >
-> The [Railway template](https://railway.com/deploy/postgresql?referralCode=7y-eBI) uses version 18 by default, so this note is especially relevant for users of that platform.
+> Both Railway templates (Standard and With Extensions) use PostgreSQL 18 by default, so this note is especially relevant for users of that platform.
 
 ## How does it work?
 
@@ -38,6 +57,7 @@ If you prefer, you can separate the installation of extension _packages_ (build-
 
 Use these `ARG` variables when building your Docker image to install packages and enable extensions.
 
+- `POSTGRES_VERSION`: Specifies the base PostgreSQL version to use when building the image. This overrides the default major version of the selected template folder (e.g., you can set it to `18.2` or `17.4`). **Warning:** Ensure the major version you specify matches the directory you are building from (`with-extensions` for 18+, `with-extensions-older` for 17 and older) to avoid volume mount path errors and validation failures.
 - `PG_EXTENSION_REPOS`: A comma-separated list of APT repository URLs to add (e.g., `https://packagecloud.io/timescale/timescaledb/debian/ trixie main`).
 - `PG_EXTENSION_REPO_KEYS`: A comma-separated list of GPG key URLs corresponding to `PG_EXTENSION_REPOS`.
 - `PG_APT_PACKAGES`: A comma-separated list of APT package names for the extensions (e.g., `postgresql-18-postgis-3,timescaledb-2-postgresql-18`).
@@ -70,9 +90,9 @@ docker run -d \
 ```
 
 > [!WARNING]
-> **Important Note for Template Users:**
+> **Important Note for Custom Extensions:**
 >
-> To leverage the custom extension installation and enabling mechanism, you **must** use the `Dockerfiles` provided within this repository (located in `template/{{dkcutter.postgresVersion}}/`) to build your PostgreSQL images.
+> To leverage the custom extension installation and enabling mechanism, you **must** build the image from source. You can use the **PostgreSQL with Custom Extensions** Railway template or build manually using the `Dockerfiles` provided within this repository (e.g., `with-extensions/Dockerfile`, or `with-extensions-older/Dockerfile`).
 >
 > Using pre-built images from the GitHub Container Registry (e.g., `ghcr.io/ncontiero/postgres-ssl:latest`) will **not** include your custom extensions, as those images are built without these build-time arguments.
 
