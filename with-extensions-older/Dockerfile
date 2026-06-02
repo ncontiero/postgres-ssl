@@ -1,6 +1,6 @@
 # Generated: 6/2/2026
 # postgres version: 17.10
-ARG POSTGRES_VERSION=17.10
+ARG POSTGRES_VERSION=17.10@sha256:0027bef26712baaee437a4ea48fdf3d2d2e2bc5f0d81615374408ca320f3c7e3
 FROM postgres:${POSTGRES_VERSION}
 
 # ==============================================================================
