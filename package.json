@@ -9,6 +9,8 @@
   "scripts": {
     "generate": "dkcutter .",
     "generate-matrix": "bun run scripts/generate-matrix.ts",
+    "generate-extensions": "bun run scripts/generate-extensions.ts",
+    "update-versions": "bun run scripts/update-versions.ts",
     "lint": "eslint .",
     "lint:fix": "bun run lint --fix",
     "typecheck": "tsc --noEmit",

@@ -8,5 +8,13 @@
       "message": "Invalid PostgreSQL version."
     }
   },
+  "outputImageSlug": {
+    "value": "{{ postgresVersion }}",
+    "promptMessage": "What would you like to use as the output image slug? (e.g. 'latest', '18', '18-alpine')",
+    "validateRegex": {
+      "regex": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$",
+      "message": "Invalid image slug. It must start with an alphanumeric character and can only contain alphanumeric characters, dots, dashes, and underscores."
+    }
+  },
   "_postgresMajorVersion": "{{ postgresVersion.split('.')[0]|int }}"
 }
