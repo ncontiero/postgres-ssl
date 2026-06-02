@@ -1,4 +1,4 @@
-# Generated: 6/1/2026
+# Generated: 6/2/2026
 # postgres version: 18.4
 ARG POSTGRES_VERSION=18.4
 FROM postgres:${POSTGRES_VERSION}
