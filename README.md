@@ -19,7 +19,7 @@ This template builds the image directly on Railway using a specific `Dockerfile`
 - **PostgreSQL 18+**: Uses the `with-extensions` directory.
 - **PostgreSQL 17 and older**: Uses the `with-extensions-older` directory.
 
-[![Deploy Postgres with Extensions on Railway](https://railway.com/button.svg)](#) _(Template link coming soon)_
+[![Deploy Postgres with Extensions on Railway](https://railway.com/button.svg)](https://railway.com/deploy/postgresql-with-extensions?referralCode=7y-eBI)
 
 ---
 
