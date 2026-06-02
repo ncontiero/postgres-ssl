@@ -4,7 +4,7 @@ on:
   workflow_call:
     outputs:
       versions:
-        description: "The build matrix versions"
+        description: The build matrix versions
         value: ${{ jobs.generate-matrix.outputs.versions }}
 
 jobs:
