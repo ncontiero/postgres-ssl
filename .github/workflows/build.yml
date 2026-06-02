@@ -12,32 +12,6 @@ jobs:
   tests:
     uses: ./.github/workflows/tests.yml
 
-  generate-extension-templates:
-    name: Generate Extension Templates
-    runs-on: ubuntu-latest
-    needs: tests
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Setup bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Generate Extension Templates
-        run: bun run generate-extensions
-
-      - name: Commit and Push changes
-        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7.1.0
-        with:
-          commit_message: "chore(templates): auto-generate extension directories"
-          file_pattern: "with-extensions/** with-extensions-older/**"
-
   generate-matrix:
     name: Generate build matrix
     runs-on: ubuntu-latest
@@ -87,6 +61,13 @@ jobs:
       - name: Generate Dockerfile
         run: bun run generate -y -f --postgresVersion ${{ matrix.postgres_version }}
 
+      - name: Generate Extension Template
+        if: ${{ matrix.extension_template != '' }}
+        run: |
+          bun run generate -y -f \
+            --postgresVersion ${{ matrix.postgres_version }}
+            --extensionTemplate ${{ matrix.extension_template }}
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
 
@@ -119,12 +100,27 @@ jobs:
           tags: postgres-test:${{ matrix.postgres_version }}
           cache-from: type=gha
 
+      - name: Build local image with extension for testing
+        if: ${{ matrix.extension_template != '' }}
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        with:
+          context: ${{ matrix.postgres_version }}
+          load: true
+          tags: postgres-test:${{ matrix.postgres_version }}-extensions
+          build-args: |
+            POSTGRES_VERSION=${{ matrix.postgres_version }}
+            PG_APT_PACKAGES=postgresql-${{ matrix.postgres_major_version }}-postgis-3
+            PG_DB_EXTENSIONS=postgis
+          cache-from: type=gha
+
       - name: Run Integration Tests
         run: bash ./tests/test-docker.sh ${{ matrix.postgres_version }}
 
       - name: Run Extension Integration Tests
         if: ${{ matrix.extension_template != '' }}
-        run: bash ./tests/test-docker-extensions.sh ${{ matrix.postgres_version }} ${{ matrix.extension_template }}
+        run: |
+          bash ./tests/test-docker-extensions.sh \
+            ${{ matrix.postgres_version }} ${{ matrix.postgres_major_version }}
 
       - name: Build and Push image
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
@@ -136,3 +132,10 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Commit and Push Extension Template
+        if: ${{ matrix.extension_template != '' }}
+        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7.1.0
+        with:
+          commit_message: "chore(template): auto-generate extension ${{ matrix.extension_template }} directory"
+          file_pattern: "${{ matrix.extension_template }}/**"

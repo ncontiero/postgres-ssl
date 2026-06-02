@@ -2,6 +2,7 @@
   "versions": [
     {
       "postgres_version": "18.4",
+      "postgres_major_version": "18",
       "is_latest": true,
       "extension_template": "with-extensions",
       "platforms": [
@@ -11,6 +12,7 @@
     },
     {
       "postgres_version": "17.10",
+      "postgres_major_version": "17",
       "is_latest": false,
       "extension_template": "with-extensions-older",
       "platforms": [
@@ -20,6 +22,7 @@
     },
     {
       "postgres_version": "16.14",
+      "postgres_major_version": "16",
       "is_latest": false,
       "platforms": [
         "linux/amd64",
@@ -28,6 +31,7 @@
     },
     {
       "postgres_version": "15.18",
+      "postgres_major_version": "15",
       "is_latest": false,
       "platforms": [
         "linux/amd64",
@@ -36,6 +40,7 @@
     },
     {
       "postgres_version": "14.23",
+      "postgres_major_version": "14",
       "is_latest": false,
       "platforms": [
         "linux/amd64",

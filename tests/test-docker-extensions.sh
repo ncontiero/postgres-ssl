@@ -1,29 +1,19 @@
 #!/bin/bash
+
 set -e
 
-# Usage: bash ./tests/test-docker-extensions.sh <postgres-version> <template-dir>
+# Usage: bash ./tests/test-docker-extensions.sh <postgres-version> <major-version>
 POSTGRES_VERSION=$1
-TEMPLATE_DIR=$2
+MAJOR_VERSION=$2
 
-if [ -z "$POSTGRES_VERSION" ] || [ -z "$TEMPLATE_DIR" ]; then
-  echo "Error: POSTGRES_VERSION or TEMPLATE_DIR is not specified."
-  echo "Usage: bash ./tests/test-docker-extensions.sh <postgres-version> <template-dir>"
+if [ -z "$POSTGRES_VERSION" ] || [ -z "$MAJOR_VERSION" ]; then
+  echo "Error: POSTGRES_VERSION or MAJOR_VERSION is not specified."
+  echo "Usage: bash ./tests/test-docker-extensions.sh <postgres-version> <major-version>"
   exit 1
 fi
 
-MAJOR_VERSION=$(echo "$POSTGRES_VERSION" | cut -d. -f1)
-IMAGE_NAME="postgres-ext-test:${POSTGRES_VERSION}"
+IMAGE_NAME="postgres-test:${POSTGRES_VERSION}-extensions"
 CONTAINER_NAME="pg-ext-test-${POSTGRES_VERSION}"
-
-echo "Building extension image from ${TEMPLATE_DIR}..."
-# We pass PostGIS as a test to verify the dynamic extension building logic
-PG_PKG="postgresql-${MAJOR_VERSION}-postgis-3"
-
-docker build \
-  --build-arg POSTGRES_VERSION="${POSTGRES_VERSION}" \
-  --build-arg PG_APT_PACKAGES="${PG_PKG}" \
-  --build-arg PG_DB_EXTENSIONS="postgis" \
-  -t "$IMAGE_NAME" "./$TEMPLATE_DIR"
 
 if [ "$MAJOR_VERSION" -lt 18 ]; then
   CERTS_DIR="/var/lib/postgresql/data/certs"
