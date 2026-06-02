@@ -112,7 +112,7 @@ jobs:
             type=match,pattern=^(\d+)\..*,group=1,value=${{ matrix.postgres_version }}
 
       - name: Build local image for testing
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: ${{ matrix.postgres_version }}
           load: true
@@ -127,7 +127,7 @@ jobs:
         run: bash ./tests/test-docker-extensions.sh ${{ matrix.postgres_version }} ${{ matrix.extension_template }}
 
       - name: Build and Push image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: ${{ matrix.postgres_version }}
           platforms: ${{ join(matrix.platforms) }}
