@@ -111,6 +111,21 @@ jobs:
             type=raw,value=${{ matrix.postgres_version }},priority=1000
             type=match,pattern=^(\d+)\..*,group=1,value=${{ matrix.postgres_version }}
 
+      - name: Build local image for testing
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.postgres_version }}
+          load: true
+          tags: postgres-test:${{ matrix.postgres_version }}
+          cache-from: type=gha
+
+      - name: Run Integration Tests
+        run: bash ./tests/test-docker.sh ${{ matrix.postgres_version }}
+
+      - name: Run Extension Integration Tests
+        if: ${{ matrix.extension_template != '' }}
+        run: bash ./tests/test-docker-extensions.sh ${{ matrix.postgres_version }} ${{ matrix.extension_template }}
+
       - name: Build and Push image
         uses: docker/build-push-action@v7
         with:

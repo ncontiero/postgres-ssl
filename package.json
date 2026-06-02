@@ -11,10 +11,11 @@
     "generate-matrix": "bun run scripts/generate-matrix.ts",
     "generate-extensions": "bun run scripts/generate-extensions.ts",
     "update-versions": "bun run scripts/update-versions.ts",
+    "test": "bun test",
     "lint": "eslint .",
     "lint:fix": "bun run lint --fix",
     "typecheck": "tsc --noEmit",
-    "check": "bun run lint && bun run typecheck"
+    "check": "bun run lint && bun run typecheck && bun run test"
   },
   "devDependencies": {
     "@ncontiero/eslint-config": "8.2.1",

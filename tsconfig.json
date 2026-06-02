@@ -20,6 +20,6 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["./scripts/**/*.ts", "./hooks/**/*.ts"],
+  "include": ["./scripts/**/*.ts", "./hooks/**/*.ts", "./tests/**/*.ts"],
   "exclude": ["node_modules"]
 }

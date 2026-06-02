@@ -43,7 +43,7 @@ async function getAllPostgresTags(): Promise<string[]> {
  * @param tags A list of all available version tags (e.g., ["16.1", "16.2", "15.5"]).
  * @returns The latest version string (e.g., "16.2") or null if no version is found.
  */
-function findLatestMinorVersion(
+export function findLatestMinorVersion(
   majorVersion: number,
   tags: string[],
 ): string | null {
