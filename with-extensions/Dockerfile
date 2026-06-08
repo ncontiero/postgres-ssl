@@ -1,4 +1,4 @@
-# Generated: 6/2/2026
+# Generated automatically via DKCutter
 # postgres version: 18.4
 ARG POSTGRES_VERSION=18.4
 FROM postgres:${POSTGRES_VERSION}
