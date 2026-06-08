@@ -1,4 +1,4 @@
-# Generated: {{ dkcutter.now.toLocaleDateString() }}
+# Generated automatically via DKCutter
 # postgres version: {{ dkcutter.postgresVersion }}
 ARG POSTGRES_VERSION={{ dkcutter.postgresVersion }}
 FROM postgres:${POSTGRES_VERSION}
