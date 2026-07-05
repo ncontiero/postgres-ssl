@@ -49,7 +49,7 @@ jobs:
             --outputImageSlug ${{ matrix.extension_template }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
@@ -73,7 +73,7 @@ jobs:
             type=match,pattern=^(\d+)\..*,group=1,value=${{ matrix.postgres_version }}
 
       - name: Build local image for testing
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: ${{ matrix.postgres_version }}
           load: true
@@ -82,7 +82,7 @@ jobs:
 
       - name: Build local image with extension for testing
         if: ${{ matrix.extension_template != '' }}
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: ${{ matrix.extension_template }}
           load: true
@@ -103,7 +103,7 @@ jobs:
             ${{ matrix.postgres_version }} ${{ matrix.postgres_major_version }}
 
       - name: Build and Push image
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: ${{ matrix.postgres_version }}
           platforms: ${{ join(matrix.platforms) }}
@@ -133,7 +133,7 @@ jobs:
         run: bun run generate-extensions
 
       - name: Commit and Push Extension Templates
-        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7.1.0
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7.2.0
         with:
           commit_message: "chore(template): auto-generate extension directories"
           file_pattern: "with-extensions/** with-extensions-older/**"
