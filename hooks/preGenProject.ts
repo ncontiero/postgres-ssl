@@ -7,7 +7,6 @@ if (
   postgresVersion !== "latest" &&
   (postgresMajorVersion < 13 || postgresMajorVersion > 18)
 ) {
-  logger.break();
   logger.error(`Unsupported postgres version: ${postgresMajorVersion}`);
   process.exit(1);
 }
