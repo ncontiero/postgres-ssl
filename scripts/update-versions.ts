@@ -1,40 +1,91 @@
-import type { DockerTag } from "./types";
 import { logger, writeJsonFile } from "dkcutter/utils";
-import { DOCKER_HUB_API_URL, VERSION_REGEX } from "./consts";
+import {
+  DOCKER_AUTH_API_URL,
+  DOCKER_REGISTRY_TAGS_API_URL,
+  VERSION_REGEX,
+} from "./consts";
 import { getVersionsFile } from "./versions";
 
+interface DockerAuthResponse {
+  token?: string;
+  access_token?: string;
+}
+
+interface DockerRegistryTagsResponse {
+  tags?: string[];
+}
+
+type Fetch = typeof globalThis.fetch;
+const NEXT_LINK_REGEX = /;\s*rel="?next"?\s*$/i;
+const LINK_URL_REGEX = /^\s*<([^>]+)>/;
+
+function getNextPageUrl(response: Response, currentUrl: string): string | null {
+  const link = response.headers.get("link");
+  if (!link) return null;
+
+  const nextLink = link.split(",").find((item) => NEXT_LINK_REGEX.test(item));
+  const match = nextLink?.match(LINK_URL_REGEX);
+
+  return match ? new URL(match[1], currentUrl).toString() : null;
+}
+
+async function getRegistryToken(fetcher: Fetch): Promise<string> {
+  const response = await fetcher(DOCKER_AUTH_API_URL, {
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to authenticate with Docker Registry: ${response.status} ${response.statusText}`,
+    );
+  }
+
+  const data = (await response.json()) as DockerAuthResponse;
+  const token = data.token ?? data.access_token;
+  if (!token) {
+    throw new Error(
+      "Docker Registry authentication response did not include a token",
+    );
+  }
+
+  return token;
+}
+
 /**
- * Fetches all tags from the Docker Hub for the official postgres image.
+ * Fetches all tags from the Docker Registry for the official postgres image.
  * It handles pagination automatically.
  * @returns A promise that resolves to an array of tag names.
  */
-async function getAllPostgresTags(): Promise<string[]> {
+export async function getAllPostgresTags(
+  fetcher: Fetch = globalThis.fetch,
+): Promise<string[]> {
   const allTags: string[] = [];
-  let url: string | null = DOCKER_HUB_API_URL;
+  let url: string | null = DOCKER_REGISTRY_TAGS_API_URL;
 
-  logger.info("Fetching all tags from Docker Hub...");
+  logger.info("Fetching all tags from Docker Registry...");
+  const token = await getRegistryToken(fetcher);
 
-  try {
-    while (url) {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch tags: ${response.statusText}`);
-      }
-
-      const data: any = await response.json();
-      const tags: DockerTag[] = data?.results || [];
-      tags.forEach((tag) => allTags.push(tag.name));
-      url = data.next; // Move to the next page if it exists
+  while (url) {
+    const currentUrl = url;
+    const response = await fetcher(currentUrl, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch tags: ${response.status} ${response.statusText}`,
+      );
     }
 
-    logger.info(`Successfully fetched ${allTags.length} total tags.`);
-    return allTags;
-  } catch (error) {
-    logger.error(
-      `Error fetching tags: ${error instanceof Error ? error.message : error}`,
-    );
-    return []; // Return empty array on failure
+    const data = (await response.json()) as DockerRegistryTagsResponse;
+    allTags.push(...(data.tags ?? []));
+    url = getNextPageUrl(response, currentUrl);
   }
+
+  logger.info(`Successfully fetched ${allTags.length} total tags.`);
+  return allTags;
 }
 
 /**
@@ -61,7 +112,7 @@ export function findLatestMinorVersion(
   return relevantVersions.length > 0 ? relevantVersions[0] : null;
 }
 
-async function updateVersions() {
+export async function updateVersions() {
   const { versionsData, versionsPath } = await getVersionsFile();
 
   const allTags = await getAllPostgresTags();
@@ -102,4 +153,11 @@ async function updateVersions() {
   }
 }
 
-updateVersions();
+if (Bun.main === import.meta.path) {
+  updateVersions().catch((error: unknown) => {
+    logger.error(
+      `Could not update versions: ${error instanceof Error ? error.message : error}`,
+    );
+    process.exit(1);
+  });
+}
