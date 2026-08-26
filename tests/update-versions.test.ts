@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   findLatestMinorVersion,
   getAllPostgresTags,
-} from "../scripts/update-versions";
+} from "../scripts/commands/update-versions";
 
 describe("getAllPostgresTags", () => {
   test("authenticates anonymously and follows Registry pagination", async () => {

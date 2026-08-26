@@ -3,8 +3,8 @@ import {
   DOCKER_AUTH_API_URL,
   DOCKER_REGISTRY_TAGS_API_URL,
   VERSION_REGEX,
-} from "./consts";
-import { getVersionsFile } from "./versions";
+} from "../shared/consts";
+import { getVersionsFile } from "../shared/versions";
 
 interface DockerAuthResponse {
   token?: string;
@@ -117,8 +117,7 @@ export async function updateVersions() {
 
   const allTags = await getAllPostgresTags();
   if (allTags.length === 0) {
-    logger.error("Could not fetch any tags. Aborting.");
-    process.exit(1);
+    throw new Error("Could not fetch any tags");
   }
 
   let updated = false;
@@ -151,13 +150,4 @@ export async function updateVersions() {
   } else {
     logger.info("No updates found for versions.json.");
   }
-}
-
-if (Bun.main === import.meta.path) {
-  updateVersions().catch((error: unknown) => {
-    logger.error(
-      `Could not update versions: ${error instanceof Error ? error.message : error}`,
-    );
-    process.exit(1);
-  });
 }

@@ -8,9 +8,9 @@
   "license": "MIT",
   "scripts": {
     "generate": "dkcutter .",
-    "generate-matrix": "bun run scripts/generate-matrix.ts",
-    "generate-extensions": "bun run scripts/generate-extensions.ts",
-    "update-versions": "bun run scripts/update-versions.ts",
+    "generate-matrix": "bun run scripts/cli/generate-matrix.ts",
+    "generate-extensions": "bun run scripts/cli/generate-extensions.ts",
+    "update-versions": "bun run scripts/cli/update-versions.ts",
     "test": "bun test",
     "lint": "eslint .",
     "lint:fix": "bun run lint --fix",
