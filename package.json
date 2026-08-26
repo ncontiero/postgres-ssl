@@ -15,7 +15,7 @@
     "lint": "eslint .",
     "lint:fix": "bun run lint --fix",
     "typecheck": "tsc --noEmit",
-    "check": "bun run lint && bun run typecheck && bun run test"
+    "check": "bun run --parallel lint typecheck test"
   },
   "devDependencies": {
     "@ncontiero/eslint-config": "8.4.5",
