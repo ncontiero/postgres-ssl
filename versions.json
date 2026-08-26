@@ -1,7 +1,7 @@
 {
   "versions": [
     {
-      "postgres_version": "18.5",
+      "postgres_version": "18.6",
       "postgres_major_version": "18",
       "is_latest": true,
       "extension_template": "with-extensions",
