@@ -1,8 +1,8 @@
 import { logger, writeJsonFile } from "dkcutter/utils";
+import { updateVersionEntries } from "../domain/version-updates";
 import {
   DOCKER_AUTH_API_URL,
   DOCKER_REGISTRY_TAGS_API_URL,
-  VERSION_REGEX,
 } from "../shared/consts";
 import { getVersionsFile } from "../shared/versions";
 
@@ -88,31 +88,7 @@ export async function getAllPostgresTags(
   return allTags;
 }
 
-/**
- * Finds the latest minor version for a given major version from a list of tags.
- * @param majorVersion The major version to look for.
- * @param tags A list of all available version tags (e.g., ["16.1", "16.2", "15.5"]).
- * @returns The latest version string (e.g., "16.2") or null if no version is found.
- */
-export function findLatestMinorVersion(
-  majorVersion: number,
-  tags: string[],
-): string | null {
-  const relevantVersions = tags
-    .filter(
-      (tag) => tag.startsWith(`${majorVersion}.`) && VERSION_REGEX.test(tag),
-    )
-    .sort((a, b) => {
-      // Custom sort to handle version numbers correctly (e.g., 16.10 > 16.2)
-      const aMinor = Number.parseInt(a.split(".")[1], 10);
-      const bMinor = Number.parseInt(b.split(".")[1], 10);
-      return bMinor - aMinor; // Sort in descending order
-    });
-
-  return relevantVersions.length > 0 ? relevantVersions[0] : null;
-}
-
-export async function updateVersions() {
+export async function updateVersions(): Promise<void> {
   const { versionsData, versionsPath } = await getVersionsFile();
 
   const allTags = await getAllPostgresTags();
@@ -120,32 +96,26 @@ export async function updateVersions() {
     throw new Error("Could not fetch any tags");
   }
 
-  let updated = false;
+  const result = updateVersionEntries(versionsData, allTags);
 
-  for (const entry of versionsData.versions) {
-    const currentVersion = entry.postgres_version;
-    const majorVersion = Number.parseInt(currentVersion.split(".")[0], 10);
-
-    const latestVersion = findLatestMinorVersion(majorVersion, allTags);
-    if (latestVersion && latestVersion !== currentVersion) {
-      logger.info(
-        `Updating major ${majorVersion} from ${currentVersion} to ${latestVersion}`,
-      );
-      entry.postgres_version = latestVersion;
-      updated = true;
-    } else if (latestVersion) {
-      logger.info(
-        `Major ${majorVersion} is already up to date (${currentVersion})`,
-      );
-    } else {
-      logger.warn(
-        `Could not find any minor version for major ${majorVersion}.`,
-      );
-    }
+  for (const change of result.changes) {
+    logger.info(
+      `Updating major ${change.majorVersion} from ${change.previousVersion} to ${change.nextVersion}`,
+    );
   }
 
-  if (updated) {
-    await writeJsonFile(versionsPath, versionsData);
+  for (const majorVersion of result.missingMajors) {
+    logger.warn(`Could not find any minor version for major ${majorVersion}.`);
+  }
+
+  for (const downgrade of result.ignoredDowngrades) {
+    logger.warn(
+      `Ignoring downgrade for major ${downgrade.majorVersion} from ${downgrade.currentVersion} to ${downgrade.registryVersion}`,
+    );
+  }
+
+  if (result.changes.length > 0) {
+    await writeJsonFile(versionsPath, result.versionsData);
     logger.info("versions.json updated successfully.");
   } else {
     logger.info("No updates found for versions.json.");
