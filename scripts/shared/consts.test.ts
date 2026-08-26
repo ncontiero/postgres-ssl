@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { VERSION_REGEX } from "../scripts/shared/consts";
+import { VERSION_REGEX } from "./consts";
 
 describe("VERSION_REGEX", () => {
   test("should accept versions in major.minor format", () => {

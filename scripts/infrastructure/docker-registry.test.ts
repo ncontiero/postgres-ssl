@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { getAllPostgresTags } from "../scripts/infrastructure/docker-registry";
+import { getAllPostgresTags } from "./docker-registry";
 
 type Fetch = typeof globalThis.fetch;
 

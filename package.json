@@ -11,7 +11,7 @@
     "generate-matrix": "bun run scripts/cli/generate-matrix.ts",
     "generate-extensions": "bun run scripts/cli/generate-extensions.ts",
     "update-versions": "bun run scripts/cli/update-versions.ts",
-    "test": "bun test",
+    "test": "bun test --isolate",
     "lint": "eslint .",
     "lint:fix": "bun run lint --fix",
     "typecheck": "tsc --noEmit",

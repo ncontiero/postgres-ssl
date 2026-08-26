@@ -4,14 +4,26 @@ import path from "node:path";
 import { readJsonFile } from "dkcutter/utils";
 import { validateVersionsFile } from "./versions-schema";
 
-export async function getVersionsFile(): Promise<{
+type ReadJson = (filePath: string) => Promise<unknown>;
+
+interface GetVersionsFileOptions {
+  readJson?: ReadJson;
+  versionsPath?: string;
+}
+
+export async function getVersionsFile(
+  options: GetVersionsFileOptions = {},
+): Promise<{
   versionsData: VersionsFile;
   versionsPath: string;
 }> {
-  const versionsPath = path.resolve(process.cwd(), "versions.json");
+  const {
+    readJson = (filePath) => readJsonFile<unknown>(filePath),
+    versionsPath = path.resolve(process.cwd(), "versions.json"),
+  } = options;
 
   try {
-    const rawVersionsData = await readJsonFile<unknown>(versionsPath);
+    const rawVersionsData = await readJson(versionsPath);
     const versionsData = validateVersionsFile(rawVersionsData);
     return { versionsPath, versionsData };
   } catch (error) {

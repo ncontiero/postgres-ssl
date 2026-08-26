@@ -1,10 +1,10 @@
-import type { VersionsFile } from "../scripts/shared/types";
+import type { VersionsFile } from "../shared/types";
 
 import { describe, expect, test } from "bun:test";
 import {
   findLatestMinorVersion,
   updateVersionEntries,
-} from "../scripts/domain/version-updates";
+} from "./version-updates";
 
 function createVersionsFile(): VersionsFile {
   return {

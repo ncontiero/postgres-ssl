@@ -2,8 +2,14 @@ import fs from "node:fs/promises";
 import { logger } from "dkcutter/utils";
 import { getVersionsFile } from "../shared/versions";
 
+type AppendFile = (filePath: string, data: string) => Promise<void>;
+interface CommandLogger {
+  info: (message: string) => void;
+}
+
 interface GenerateMatrixOptions {
-  appendFile?: typeof fs.appendFile;
+  appendFile?: AppendFile;
+  commandLogger?: CommandLogger;
   outputPath?: string;
   readVersions?: typeof getVersionsFile;
 }
@@ -13,14 +19,15 @@ export async function generateMatrix(
 ): Promise<void> {
   const {
     appendFile = fs.appendFile,
+    commandLogger = logger,
     outputPath = process.env.GITHUB_OUTPUT,
     readVersions = getVersionsFile,
   } = options;
 
-  logger.info("Reading versions.json to generate matrix...");
+  commandLogger.info("Reading versions.json to generate matrix...");
   const { versionsData } = await readVersions();
 
-  logger.info(
+  commandLogger.info(
     `Found versions: ${versionsData.versions.map((version) => version.postgres_version).join(", ")}.`,
   );
 

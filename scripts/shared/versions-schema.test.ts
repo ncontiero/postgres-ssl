@@ -1,10 +1,10 @@
-import type { VersionsFile } from "../scripts/shared/types";
+import type { VersionsFile } from "./types";
 
 import { describe, expect, test } from "bun:test";
 import {
   validateVersionsFile,
   VersionsValidationError,
-} from "../scripts/shared/versions-schema";
+} from "./versions-schema";
 
 function createValidVersionsFile(): VersionsFile {
   return {
