@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Calling this file with `sh` overrides its Bash shebang. Re-execute it with
+# Bash before the interpreter reaches Bash-specific syntax used below.
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec bash "$0" "$@"
+fi
+
 set -e
 
 # Usage: ./tests/test-docker.sh <postgres-version>
@@ -30,6 +36,22 @@ else
   DATA_PATH="${MOUNT_PATH}/${MAJOR_VERSION}/docker"
 fi
 CERTS_DIR="${DATA_PATH}/certs"
+
+if ! docker info > /dev/null 2>&1; then
+  echo "ERROR: Docker is not running or the current user cannot access its daemon." >&2
+  exit 1
+fi
+
+if ! docker image inspect "$IMAGE_NAME" > /dev/null 2>&1; then
+  echo "ERROR: Required local image '$IMAGE_NAME' was not found." >&2
+  if [ -f "$POSTGRES_VERSION/Dockerfile" ]; then
+    echo "Build it first with:" >&2
+    echo "  docker build -t $IMAGE_NAME $POSTGRES_VERSION" >&2
+  else
+    echo "Generate its build context and build it before running this test." >&2
+  fi
+  exit 1
+fi
 
 cleanup() {
   echo "Cleaning up containers and volume..."
@@ -71,7 +93,7 @@ if INVALID_OUTPUT=$(docker run --rm \
   exit 1
 fi
 
-if ! grep -q "Railway volume not mounted to the correct path" <<< "$INVALID_OUTPUT"; then
+if ! printf '%s\n' "$INVALID_OUTPUT" | grep -q "Railway volume not mounted to the correct path"; then
   echo "ERROR: Invalid Railway mount path did not produce the expected error."
   echo "$INVALID_OUTPUT"
   exit 1
@@ -85,7 +107,7 @@ if INVALID_OUTPUT=$(docker run --rm \
   exit 1
 fi
 
-if ! grep -q "PGDATA is outside the expected volume mount path" <<< "$INVALID_OUTPUT"; then
+if ! printf '%s\n' "$INVALID_OUTPUT" | grep -q "PGDATA is outside the expected volume mount path"; then
   echo "ERROR: Invalid PGDATA did not produce the expected boundary error."
   echo "$INVALID_OUTPUT"
   exit 1
@@ -116,7 +138,7 @@ if MISMATCH_OUTPUT=$(docker run --rm \
   exit 1
 fi
 
-if ! grep -q "This image runs PostgreSQL $MAJOR_VERSION, but PGDATA contains version '$INCOMPATIBLE_MAJOR'" <<< "$MISMATCH_OUTPUT"; then
+if ! printf '%s\n' "$MISMATCH_OUTPUT" | grep -q "This image runs PostgreSQL $MAJOR_VERSION, but PGDATA contains version '$INCOMPATIBLE_MAJOR'"; then
   echo "ERROR: Major-version mismatch did not produce the expected error."
   echo "$MISMATCH_OUTPUT"
   exit 1
@@ -211,7 +233,7 @@ if CONTENDER_OUTPUT=$(docker run --name "$CONTENDER_NAME" \
   exit 1
 fi
 
-if ! grep -q "Refusing to start another Postgres process on the same volume" <<< "$CONTENDER_OUTPUT"; then
+if ! printf '%s\n' "$CONTENDER_OUTPUT" | grep -q "Refusing to start another Postgres process on the same volume"; then
   echo "ERROR: The competing container did not fail because of the runtime lock."
   echo "--- Competing Container Output ---"
   echo "$CONTENDER_OUTPUT"

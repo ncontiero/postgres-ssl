@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Calling this file with `sh` overrides its Bash shebang.
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec bash "$0" "$@"
+fi
+
 set -e
 
 # Usage: bash ./tests/test-docker-extensions.sh <postgres-version> <major-version>
@@ -16,6 +21,17 @@ IMAGE_NAME="postgres-test:${POSTGRES_VERSION}-extensions"
 CONTAINER_NAME="pg-ext-test-${POSTGRES_VERSION}"
 PRIVATE_DOMAIN="postgres.railway.internal"
 PUBLIC_DOMAIN="postgres-test.proxy.rlwy.net"
+
+if ! docker info > /dev/null 2>&1; then
+  echo "ERROR: Docker is not running or the current user cannot access its daemon." >&2
+  exit 1
+fi
+
+if ! docker image inspect "$IMAGE_NAME" > /dev/null 2>&1; then
+  echo "ERROR: Required local image '$IMAGE_NAME' was not found." >&2
+  echo "Build the extension image before running this test." >&2
+  exit 1
+fi
 
 if [ "$MAJOR_VERSION" -lt 18 ]; then
   CERTS_DIR="/var/lib/postgresql/data/certs"
