@@ -14,6 +14,8 @@ fi
 
 IMAGE_NAME="postgres-test:${POSTGRES_VERSION}-extensions"
 CONTAINER_NAME="pg-ext-test-${POSTGRES_VERSION}"
+PRIVATE_DOMAIN="postgres.railway.internal"
+PUBLIC_DOMAIN="postgres-test.proxy.rlwy.net"
 
 if [ "$MAJOR_VERSION" -lt 18 ]; then
   CERTS_DIR="/var/lib/postgresql/data/certs"
@@ -28,6 +30,8 @@ docker run -d --name "$CONTAINER_NAME" \
   -e POSTGRES_PASSWORD=test_password \
   -e RAILWAY_ENVIRONMENT=true \
   -e RAILWAY_VOLUME_MOUNT_PATH="$MOUNT_PATH" \
+  -e RAILWAY_PRIVATE_DOMAIN="$PRIVATE_DOMAIN" \
+  -e RAILWAY_TCP_PROXY_DOMAIN="$PUBLIC_DOMAIN" \
   "$IMAGE_NAME"
 
 trap 'echo "Cleaning up container..."; docker rm -f "$CONTAINER_NAME" > /dev/null' EXIT
@@ -60,6 +64,17 @@ if ! docker exec "$CONTAINER_NAME" ls -l "$CERTS_DIR/server.crt" > /dev/null; th
   echo "ERROR: server.crt was not generated!"
   exit 1
 fi
+
+echo "Verifying Railway domains in the certificate SANs..."
+for DNS_NAME in localhost "$PRIVATE_DOMAIN" "$PUBLIC_DOMAIN"; do
+  if ! docker exec "$CONTAINER_NAME" openssl x509 \
+    -checkhost "$DNS_NAME" \
+    -noout \
+    -in "$CERTS_DIR/server.crt" > /dev/null; then
+    echo "ERROR: server.crt does not cover '$DNS_NAME'."
+    exit 1
+  fi
+done
 
 echo "Verifying Extension installation (PostGIS)..."
 if ! docker exec "$CONTAINER_NAME" psql -U postgres -c "\dx" | grep -q "postgis"; then

@@ -98,13 +98,17 @@ docker run -d \
 
 ## SSL Certificate Management
 
+### Railway hostnames
+
+The server certificate always includes `localhost` in its Subject Alternative Names (SANs). When Railway provides `RAILWAY_PRIVATE_DOMAIN` or `RAILWAY_TCP_PROXY_DOMAIN`, their values are also included so clients can validate either the private hostname or the public TCP Proxy hostname.
+
 ### Certificate Expiry
 
 By default, the self-signed SSL certificate expiry is set to **820 days**. You can control this by passing the `SSL_CERT_DAYS` build argument.
 
 ### Automatic Certificate Renewal
 
-The `wrapper.sh` entrypoint script automatically handles certificate renewal. On every container start, it checks if the certificate has expired or will expire within the next **30 days**. If so, it regenerates the certificate, ensuring uninterrupted SSL-encrypted connections. Because the configuration logic is idempotent, this process will not cause duplicate entries in `postgresql.conf`.
+The `wrapper.sh` entrypoint script automatically handles certificate renewal. On every container start, it checks whether the certificate contains every required SAN and whether it has expired or will expire within the next **30 days**. If necessary, it regenerates the certificate, ensuring uninterrupted SSL-encrypted connections. Because the configuration logic is idempotent, this process will not cause duplicate entries in `postgresql.conf`.
 
 ## Advanced Behavior & Platform Specifics
 

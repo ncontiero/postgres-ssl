@@ -102,6 +102,28 @@ acquire_runtime_lock() {
   echo "The previous container released the volume; continuing startup."
 }
 
+certificate_has_required_sans() {
+  local cert_file=$1
+  local dns_name
+  local certificate_sans
+
+  if ! certificate_sans=$(openssl x509 -noout -ext subjectAltName -in "$cert_file" 2>/dev/null); then
+    return 1
+  fi
+
+  for dns_name in localhost "${RAILWAY_PRIVATE_DOMAIN:-}" "${RAILWAY_TCP_PROXY_DOMAIN:-}"; do
+    if [ -n "$dns_name" ] \
+      && ! printf '%s\n' "$certificate_sans" \
+        | tr ',' '\n' \
+        | sed 's/^[[:space:]]*//' \
+        | grep -Fqx "DNS:$dns_name"; then
+      return 1
+    fi
+  done
+
+  return 0
+}
+
 # Checks the status of SSL certificates and regenerates them if necessary.
 check_and_regenerate_certs() {
   echo "Checking SSL certificate status..."
@@ -110,9 +132,9 @@ check_and_regenerate_certs() {
   local conf_file="$PGDATA/postgresql.conf"
   local init_script="/docker-entrypoint-initdb.d/init-ssl.sh"
 
-  # Case 1: Certificate exists but is not a valid v3 certificate (e.g., missing SAN).
-  if [ -f "$cert_file" ] && ! openssl x509 -noout -text -in "$cert_file" | grep -q "DNS:localhost"; then
-    echo "WARNING: A valid x509v3 certificate was not found. Regenerating certificates..."
+  # Case 1: Certificate exists but does not cover all required hostnames.
+  if [ -f "$cert_file" ] && ! certificate_has_required_sans "$cert_file"; then
+    echo "WARNING: The certificate does not contain all required SANs. Regenerating certificates..."
     bash "$init_script"
     return
   fi

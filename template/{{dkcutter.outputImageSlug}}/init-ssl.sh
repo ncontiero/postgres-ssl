@@ -22,6 +22,31 @@ SSL_SERVER_CRT="$SSL_DIR/server.crt"
 # openssl extension configuration file
 SSL_V3_EXT="$SSL_DIR/v3.ext"
 
+is_valid_dns_name() {
+  local dns_name=$1
+  local dns_name_length
+
+  dns_name_length=$(printf '%s' "$dns_name" | wc -c)
+
+  [ "$dns_name_length" -le 253 ] \
+    && [[ "$dns_name" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] \
+    && [[ "$dns_name" != *..* ]]
+}
+
+SSL_SAN="DNS:localhost"
+for railway_domain in "${RAILWAY_PRIVATE_DOMAIN:-}" "${RAILWAY_TCP_PROXY_DOMAIN:-}"; do
+  if [ -z "$railway_domain" ]; then
+    continue
+  fi
+
+  if ! is_valid_dns_name "$railway_domain"; then
+    echo "ERROR: '$railway_domain' is not a valid DNS name for the server certificate." >&2
+    exit 1
+  fi
+
+  SSL_SAN="${SSL_SAN},DNS:${railway_domain}"
+done
+
 # ==============================================================================
 # 2. CREATE SSL DIRECTORY
 # ==============================================================================
@@ -65,7 +90,7 @@ chmod og-rwx "$SSL_SERVER_KEY"
 # ==============================================================================
 # 5. CREATE OPENSSL EXTENSIONS FILE
 # This configuration file is needed to define the Subject Alternative Name (SAN),
-# allowing the certificate to be valid for 'localhost'.
+# allowing the certificate to be valid for localhost and the Railway domains.
 # ==============================================================================
 echo "Creating openssl v3 extensions file..."
 cat >| "$SSL_V3_EXT" <<EOF
@@ -73,7 +98,7 @@ cat >| "$SSL_V3_EXT" <<EOF
 authorityKeyIdentifier = keyid, issuer
 basicConstraints = critical, CA:TRUE
 keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
-subjectAltName = DNS:localhost
+subjectAltName = ${SSL_SAN}
 EOF
 
 # ==============================================================================

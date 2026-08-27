@@ -17,6 +17,8 @@ CONTENDER_NAME="pg-test-${POSTGRES_VERSION}-contender"
 NEXT_CONTAINER_NAME="pg-test-${POSTGRES_VERSION}-next"
 VOLUME_NAME="pg-test-${POSTGRES_VERSION}-data"
 MISMATCH_VOLUME_NAME="pg-test-${POSTGRES_VERSION}-mismatch"
+PRIVATE_DOMAIN="postgres.railway.internal"
+PUBLIC_DOMAIN="postgres-test.proxy.rlwy.net"
 
 MAJOR_VERSION=$(echo "$POSTGRES_VERSION" | cut -d. -f1)
 
@@ -130,6 +132,8 @@ docker run -d --name "$CONTAINER_NAME" \
   -e POSTGRES_PASSWORD=test_password \
   -e RAILWAY_ENVIRONMENT=true \
   -e RAILWAY_VOLUME_MOUNT_PATH="$MOUNT_PATH" \
+  -e RAILWAY_PRIVATE_DOMAIN="$PRIVATE_DOMAIN" \
+  -e RAILWAY_TCP_PROXY_DOMAIN="$PUBLIC_DOMAIN" \
   -e PGDATA="${DATA_PATH}/" \
   -v "$VOLUME_NAME:$MOUNT_PATH" \
   "$IMAGE_NAME"
@@ -162,6 +166,17 @@ if ! docker exec "$CONTAINER_NAME" ls -l "$CERTS_DIR/server.crt" > /dev/null; th
   echo "ERROR: server.crt was not generated at $CERTS_DIR!"
   exit 1
 fi
+
+echo "Verifying Railway domains in the certificate SANs..."
+for DNS_NAME in localhost "$PRIVATE_DOMAIN" "$PUBLIC_DOMAIN"; do
+  if ! docker exec "$CONTAINER_NAME" openssl x509 \
+    -checkhost "$DNS_NAME" \
+    -noout \
+    -in "$CERTS_DIR/server.crt" > /dev/null; then
+    echo "ERROR: server.crt does not cover '$DNS_NAME'."
+    exit 1
+  fi
+done
 
 echo "Verifying SSL Key permissions (must be -rw-------)..."
 if ! docker exec "$CONTAINER_NAME" stat -c "%A" "$CERTS_DIR/server.key" | grep -q "\-rw-------"; then
@@ -205,6 +220,8 @@ docker run -d --name "$NEXT_CONTAINER_NAME" \
   -e POSTGRES_PASSWORD=test_password \
   -e RAILWAY_ENVIRONMENT=true \
   -e RAILWAY_VOLUME_MOUNT_PATH="$MOUNT_PATH" \
+  -e RAILWAY_PRIVATE_DOMAIN="$PRIVATE_DOMAIN" \
+  -e RAILWAY_TCP_PROXY_DOMAIN="$PUBLIC_DOMAIN" \
   -e RUNTIME_LOCK_WAIT_SECONDS=30 \
   -v "$VOLUME_NAME:$MOUNT_PATH" \
   "$IMAGE_NAME" \
