@@ -59,6 +59,20 @@ if [ "$IS_READY" = false ]; then
   exit 1
 fi
 
+SERVER_VERSION=$(docker exec "$CONTAINER_NAME" psql \
+  --username postgres \
+  --dbname postgres \
+  --tuples-only \
+  --no-align \
+  -c "SHOW server_version")
+case "$SERVER_VERSION" in
+  "$POSTGRES_VERSION"|"$POSTGRES_VERSION "*) ;;
+  *)
+    echo "ERROR: Expected PostgreSQL $POSTGRES_VERSION, but the extension image contains '$SERVER_VERSION'."
+    exit 1
+    ;;
+esac
+
 echo "Verifying SSL Certificate auto-generation at $CERTS_DIR..."
 if ! docker exec "$CONTAINER_NAME" ls -l "$CERTS_DIR/server.crt" > /dev/null; then
   echo "ERROR: server.crt was not generated!"

@@ -150,6 +150,20 @@ echo ""
 
 echo "Postgres is healthy and ready!"
 
+SERVER_VERSION=$(docker exec "$CONTAINER_NAME" psql \
+  --username postgres \
+  --dbname postgres \
+  --tuples-only \
+  --no-align \
+  -c "SHOW server_version")
+case "$SERVER_VERSION" in
+  "$POSTGRES_VERSION"|"$POSTGRES_VERSION "*) ;;
+  *)
+    echo "ERROR: Expected PostgreSQL $POSTGRES_VERSION, but the image contains '$SERVER_VERSION'."
+    exit 1
+    ;;
+esac
+
 NORMALIZED_PGDATA=$(docker exec "$CONTAINER_NAME" psql \
   --username postgres \
   --dbname postgres \

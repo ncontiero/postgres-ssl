@@ -7,10 +7,18 @@ FROM postgres:${POSTGRES_VERSION}
 # 1. SYSTEM DEPENDENCIES
 # Install essential packages required for the entrypoint scripts and general use.
 # - openssl: For generating self-signed SSL certificates.
+# Hold the versioned server and client packages while APT resolves dependencies,
+# so the image continues to contain the PostgreSQL minor selected above.
 # ==============================================================================
-RUN apt-get update \
+RUN apt-mark hold \
+        postgresql-{{ dkcutter._postgresMajorVersion }} \
+        postgresql-client-{{ dkcutter._postgresMajorVersion }} \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         openssl \
+    && apt-mark unhold \
+        postgresql-{{ dkcutter._postgresMajorVersion }} \
+        postgresql-client-{{ dkcutter._postgresMajorVersion }} \
     && rm -rf /var/lib/apt/lists/*
 
 # ==============================================================================
@@ -41,6 +49,7 @@ RUN \
         exit 0; \
     fi; \
     set -e; \
+    apt-mark hold postgresql-{{ dkcutter._postgresMajorVersion }} postgresql-client-{{ dkcutter._postgresMajorVersion }}; \
     \
     if [ -n "$PG_EXTENSION_REPOS" ]; then \
         apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
@@ -80,6 +89,7 @@ RUN \
     \
     echo "Installing packages: $packages"; \
     apt-get install -y --no-install-recommends $packages; \
+    apt-mark unhold postgresql-{{ dkcutter._postgresMajorVersion }} postgresql-client-{{ dkcutter._postgresMajorVersion }}; \
     \
     # Clean up the APT cache to reduce final image size.
     rm -rf /var/lib/apt/lists/*;
