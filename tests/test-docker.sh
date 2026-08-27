@@ -16,21 +16,23 @@ CONTAINER_NAME="pg-test-${POSTGRES_VERSION}"
 CONTENDER_NAME="pg-test-${POSTGRES_VERSION}-contender"
 NEXT_CONTAINER_NAME="pg-test-${POSTGRES_VERSION}-next"
 VOLUME_NAME="pg-test-${POSTGRES_VERSION}-data"
+MISMATCH_VOLUME_NAME="pg-test-${POSTGRES_VERSION}-mismatch"
 
 MAJOR_VERSION=$(echo "$POSTGRES_VERSION" | cut -d. -f1)
 
 if [ "$MAJOR_VERSION" -lt 18 ]; then
   MOUNT_PATH="/var/lib/postgresql/data"
-  CERTS_DIR="${MOUNT_PATH}/certs"
+  DATA_PATH="$MOUNT_PATH"
 else
   MOUNT_PATH="/var/lib/postgresql"
-  CERTS_DIR="${MOUNT_PATH}/${MAJOR_VERSION}/docker/certs"
+  DATA_PATH="${MOUNT_PATH}/${MAJOR_VERSION}/docker"
 fi
+CERTS_DIR="${DATA_PATH}/certs"
 
 cleanup() {
   echo "Cleaning up containers and volume..."
   docker rm -f "$NEXT_CONTAINER_NAME" "$CONTENDER_NAME" "$CONTAINER_NAME" > /dev/null 2>&1 || true
-  docker volume rm "$VOLUME_NAME" > /dev/null 2>&1 || true
+  docker volume rm "$MISMATCH_VOLUME_NAME" "$VOLUME_NAME" > /dev/null 2>&1 || true
 }
 
 wait_for_postgres() {
@@ -57,6 +59,69 @@ wait_for_postgres() {
 
 trap cleanup EXIT
 
+echo "Verifying Railway mount and PGDATA validation..."
+if INVALID_OUTPUT=$(docker run --rm \
+  -e POSTGRES_PASSWORD=test_password \
+  -e RAILWAY_ENVIRONMENT=true \
+  -e RAILWAY_VOLUME_MOUNT_PATH="${MOUNT_PATH}/invalid" \
+  "$IMAGE_NAME" 2>&1); then
+  echo "ERROR: The image accepted an invalid Railway volume mount path."
+  exit 1
+fi
+
+if ! grep -q "Railway volume not mounted to the correct path" <<< "$INVALID_OUTPUT"; then
+  echo "ERROR: Invalid Railway mount path did not produce the expected error."
+  echo "$INVALID_OUTPUT"
+  exit 1
+fi
+
+if INVALID_OUTPUT=$(docker run --rm \
+  -e POSTGRES_PASSWORD=test_password \
+  -e PGDATA="${MOUNT_PATH}-invalid" \
+  "$IMAGE_NAME" 2>&1); then
+  echo "ERROR: The image accepted PGDATA with an invalid path prefix."
+  exit 1
+fi
+
+if ! grep -q "PGDATA is outside the expected volume mount path" <<< "$INVALID_OUTPUT"; then
+  echo "ERROR: Invalid PGDATA did not produce the expected boundary error."
+  echo "$INVALID_OUTPUT"
+  exit 1
+fi
+
+echo "Verifying PostgreSQL major-version compatibility..."
+if [ "$MAJOR_VERSION" = "18" ]; then
+  INCOMPATIBLE_MAJOR=17
+else
+  INCOMPATIBLE_MAJOR=18
+fi
+
+docker volume create "$MISMATCH_VOLUME_NAME" > /dev/null
+docker run --rm \
+  --entrypoint bash \
+  -v "$MISMATCH_VOLUME_NAME:$MOUNT_PATH" \
+  "$IMAGE_NAME" \
+  -c "mkdir -p '$DATA_PATH' && echo '$INCOMPATIBLE_MAJOR' > '$DATA_PATH/PG_VERSION'"
+
+if MISMATCH_OUTPUT=$(docker run --rm \
+  -e POSTGRES_PASSWORD=test_password \
+  -e RAILWAY_ENVIRONMENT=true \
+  -e RAILWAY_VOLUME_MOUNT_PATH="$MOUNT_PATH" \
+  -e PGDATA="$DATA_PATH" \
+  -v "$MISMATCH_VOLUME_NAME:$MOUNT_PATH" \
+  "$IMAGE_NAME" 2>&1); then
+  echo "ERROR: The image started with data from PostgreSQL $INCOMPATIBLE_MAJOR."
+  exit 1
+fi
+
+if ! grep -q "This image runs PostgreSQL $MAJOR_VERSION, but PGDATA contains version '$INCOMPATIBLE_MAJOR'" <<< "$MISMATCH_OUTPUT"; then
+  echo "ERROR: Major-version mismatch did not produce the expected error."
+  echo "$MISMATCH_OUTPUT"
+  exit 1
+fi
+
+docker volume rm "$MISMATCH_VOLUME_NAME" > /dev/null
+
 docker volume create "$VOLUME_NAME" > /dev/null
 
 echo "Starting Postgres container ($CONTAINER_NAME) using image $IMAGE_NAME..."
@@ -65,6 +130,7 @@ docker run -d --name "$CONTAINER_NAME" \
   -e POSTGRES_PASSWORD=test_password \
   -e RAILWAY_ENVIRONMENT=true \
   -e RAILWAY_VOLUME_MOUNT_PATH="$MOUNT_PATH" \
+  -e PGDATA="${DATA_PATH}/" \
   -v "$VOLUME_NAME:$MOUNT_PATH" \
   "$IMAGE_NAME"
 
@@ -79,6 +145,17 @@ fi
 echo ""
 
 echo "Postgres is healthy and ready!"
+
+NORMALIZED_PGDATA=$(docker exec "$CONTAINER_NAME" psql \
+  --username postgres \
+  --dbname postgres \
+  --tuples-only \
+  --no-align \
+  -c "SHOW data_directory")
+if [ "$NORMALIZED_PGDATA" != "$DATA_PATH" ]; then
+  echo "ERROR: PGDATA trailing slash was not normalized."
+  exit 1
+fi
 
 echo "Verifying SSL Certificate auto-generation..."
 if ! docker exec "$CONTAINER_NAME" ls -l "$CERTS_DIR/server.crt" > /dev/null; then

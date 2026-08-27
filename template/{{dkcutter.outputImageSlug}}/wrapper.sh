@@ -4,6 +4,7 @@
 set -e
 
 EXPECTED_VOLUME_MOUNT_PATH="/var/lib/postgresql{{ '/data' if dkcutter._postgresMajorVersion < 18 }}"
+EXPECTED_POSTGRES_MAJOR="{{ dkcutter._postgresMajorVersion }}"
 
 # ==============================================================================
 # FUNCTION DEFINITIONS
@@ -14,6 +15,14 @@ EXPECTED_VOLUME_MOUNT_PATH="/var/lib/postgresql{{ '/data' if dkcutter._postgresM
 validate_environment() {
   echo "Validating environment..."
 
+  # Keep all path comparisons and derived paths consistent. PostgreSQL accepts
+  # trailing slashes, but leaving them in PGDATA makes boundary checks and
+  # operational tooling unnecessarily ambiguous.
+  while [ "${PGDATA%/}" != "$PGDATA" ] && [ -n "${PGDATA%/}" ]; do
+    PGDATA="${PGDATA%/}"
+  done
+  export PGDATA
+
   # Check if running on Railway and if the volume mount path is correct.
   if [ -n "$RAILWAY_ENVIRONMENT" ] && [ "$RAILWAY_VOLUME_MOUNT_PATH" != "$EXPECTED_VOLUME_MOUNT_PATH" ]; then
     echo "ERROR: Railway volume not mounted to the correct path." >&2
@@ -22,11 +31,32 @@ validate_environment() {
     exit 1
   fi
 
-  # Check if PGDATA is located within the expected volume mount path.
-  if [[ ! "$PGDATA" =~ ^"$EXPECTED_VOLUME_MOUNT_PATH" ]]; then
-    echo "ERROR: PGDATA does not start with the expected volume mount path." >&2
-    echo "Expected to start with: '$EXPECTED_VOLUME_MOUNT_PATH', but PGDATA is: '$PGDATA'." >&2
-    echo "Please update the PGDATA variable and redeploy." >&2
+  # Check a real directory boundary instead of a textual prefix, which would
+  # incorrectly accept paths such as /var/lib/postgresql/data-invalid.
+  case "$PGDATA" in
+    "$EXPECTED_VOLUME_MOUNT_PATH"|"$EXPECTED_VOLUME_MOUNT_PATH"/*) ;;
+    *)
+      echo "ERROR: PGDATA is outside the expected volume mount path." >&2
+      echo "Expected: '$EXPECTED_VOLUME_MOUNT_PATH' or one of its subdirectories, but PGDATA is: '$PGDATA'." >&2
+      echo "Please update the PGDATA variable and redeploy." >&2
+      exit 1
+      ;;
+  esac
+}
+
+# Refuses to start an image against files created by another PostgreSQL major.
+# Changing an image tag does not perform a major-version data upgrade.
+validate_data_version() {
+  local version_file="$PGDATA/PG_VERSION"
+  local data_major
+
+  [ -f "$version_file" ] || return 0
+  data_major=$(tr -d '[:space:]' < "$version_file")
+
+  if [ "$data_major" != "$EXPECTED_POSTGRES_MAJOR" ]; then
+    echo "ERROR: PostgreSQL major version mismatch." >&2
+    echo "This image runs PostgreSQL $EXPECTED_POSTGRES_MAJOR, but PGDATA contains version '${data_major:-unknown}'." >&2
+    echo "Changing the image tag does not upgrade the database files. Restore the previous image or run a major-version upgrade." >&2
     exit 1
   fi
 }
@@ -109,6 +139,7 @@ check_and_regenerate_certs() {
 # ==============================================================================
 
 validate_environment
+validate_data_version
 
 # The official entrypoint also treats arguments beginning with '-' as options
 # for the postgres server. Administrative commands such as bash or psql do not
