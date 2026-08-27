@@ -14,6 +14,7 @@ fi
 IMAGE_NAME="postgres-test:${POSTGRES_VERSION}"
 CONTAINER_NAME="pg-test-${POSTGRES_VERSION}"
 CONTENDER_NAME="pg-test-${POSTGRES_VERSION}-contender"
+NEXT_CONTAINER_NAME="pg-test-${POSTGRES_VERSION}-next"
 VOLUME_NAME="pg-test-${POSTGRES_VERSION}-data"
 
 MAJOR_VERSION=$(echo "$POSTGRES_VERSION" | cut -d. -f1)
@@ -28,8 +29,30 @@ fi
 
 cleanup() {
   echo "Cleaning up containers and volume..."
-  docker rm -f "$CONTENDER_NAME" "$CONTAINER_NAME" > /dev/null 2>&1 || true
+  docker rm -f "$NEXT_CONTAINER_NAME" "$CONTENDER_NAME" "$CONTAINER_NAME" > /dev/null 2>&1 || true
   docker volume rm "$VOLUME_NAME" > /dev/null 2>&1 || true
+}
+
+wait_for_postgres() {
+  local container_name=$1
+  local max_retries=${2:-15}
+  local retry_count=0
+
+  while [ "$retry_count" -lt "$max_retries" ]; do
+    if docker exec "$container_name" pg_isready -U postgres -t 2 > /dev/null 2>&1; then
+      return 0
+    fi
+
+    if [ "$(docker inspect -f '{{.State.Status}}' "$container_name" 2>/dev/null)" = "exited" ]; then
+      return 1
+    fi
+
+    sleep 2
+    retry_count=$((retry_count + 1))
+    echo -n "."
+  done
+
+  return 1
 }
 
 trap cleanup EXIT
@@ -46,28 +69,14 @@ docker run -d --name "$CONTAINER_NAME" \
   "$IMAGE_NAME"
 
 echo "Waiting for Postgres to initialize (can take a few seconds)..."
-# Retry loop for pg_isready (up to 30 seconds)
-MAX_RETRIES=15
-RETRY_COUNT=0
-IS_READY=false
-
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-  if docker exec "$CONTAINER_NAME" pg_isready -U postgres -t 2 > /dev/null 2>&1; then
-    IS_READY=true
-    break
-  fi
-  sleep 2
-  RETRY_COUNT=$((RETRY_COUNT + 1))
-  echo -n "."
-done
-echo ""
-
-if [ "$IS_READY" = false ]; then
+if ! wait_for_postgres "$CONTAINER_NAME"; then
+  echo ""
   echo "ERROR: Postgres failed to start or become ready in time!"
   echo "--- Container Logs ---"
   docker logs "$CONTAINER_NAME"
   exit 1
 fi
+echo ""
 
 echo "Postgres is healthy and ready!"
 
@@ -102,5 +111,82 @@ if ! grep -q "Refusing to start another Postgres process on the same volume" <<<
   echo "$CONTENDER_OUTPUT"
   exit 1
 fi
+
+echo "Preparing persistent state for the deployment handoff..."
+docker exec "$CONTAINER_NAME" psql \
+  -v ON_ERROR_STOP=1 \
+  --username postgres \
+  --dbname postgres \
+  -c "CREATE TABLE railway_handoff_test (value text NOT NULL); INSERT INTO railway_handoff_test VALUES ('preserved');" \
+  > /dev/null
+
+CERT_FINGERPRINT=$(docker exec "$CONTAINER_NAME" openssl x509 \
+  -noout -fingerprint -sha256 -in "$CERTS_DIR/server.crt")
+
+echo "Starting the next deployment while the current one still holds the volume..."
+docker run -d --name "$NEXT_CONTAINER_NAME" \
+  -e POSTGRES_PASSWORD=test_password \
+  -e RAILWAY_ENVIRONMENT=true \
+  -e RAILWAY_VOLUME_MOUNT_PATH="$MOUNT_PATH" \
+  -e RUNTIME_LOCK_WAIT_SECONDS=30 \
+  -v "$VOLUME_NAME:$MOUNT_PATH" \
+  "$IMAGE_NAME" \
+  > /dev/null
+
+LOCK_WAIT_DETECTED=false
+for _ in $(seq 1 20); do
+  if docker logs "$NEXT_CONTAINER_NAME" 2>&1 | grep -q "Another Postgres container is still using the volume"; then
+    LOCK_WAIT_DETECTED=true
+    break
+  fi
+  sleep 0.25
+done
+
+if [ "$LOCK_WAIT_DETECTED" = false ]; then
+  echo "ERROR: The next deployment did not wait for the current container's lock."
+  echo "--- Next Container Logs ---"
+  docker logs "$NEXT_CONTAINER_NAME"
+  exit 1
+fi
+
+echo "Stopping the current deployment and waiting for the next one to take over..."
+docker stop --time 10 "$CONTAINER_NAME" > /dev/null
+
+if ! wait_for_postgres "$NEXT_CONTAINER_NAME" 20; then
+  echo ""
+  echo "ERROR: The next deployment did not start after the volume lock was released."
+  echo "--- Next Container Logs ---"
+  docker logs "$NEXT_CONTAINER_NAME"
+  exit 1
+fi
+echo ""
+
+if ! docker logs "$NEXT_CONTAINER_NAME" 2>&1 | grep -q "The previous container released the volume; continuing startup"; then
+  echo "ERROR: The next deployment did not report a successful lock handoff."
+  docker logs "$NEXT_CONTAINER_NAME"
+  exit 1
+fi
+
+PRESERVED_VALUE=$(docker exec "$NEXT_CONTAINER_NAME" psql \
+  --username postgres \
+  --dbname postgres \
+  --tuples-only \
+  --no-align \
+  -c "SELECT value FROM railway_handoff_test LIMIT 1")
+
+if [ "$PRESERVED_VALUE" != "preserved" ]; then
+  echo "ERROR: Database state was not preserved during the deployment handoff."
+  exit 1
+fi
+
+NEXT_CERT_FINGERPRINT=$(docker exec "$NEXT_CONTAINER_NAME" openssl x509 \
+  -noout -fingerprint -sha256 -in "$CERTS_DIR/server.crt")
+
+if [ "$NEXT_CERT_FINGERPRINT" != "$CERT_FINGERPRINT" ]; then
+  echo "ERROR: The SSL certificate changed during the deployment handoff."
+  exit 1
+fi
+
+echo "Deployment handoff preserved the database state and SSL certificate."
 
 echo "All integration tests passed successfully!"
