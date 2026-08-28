@@ -118,6 +118,29 @@ Set `SSL_REQUIRE=true` to reject TCP connections that do not negotiate TLS. The 
 
 The default is `false` for backward compatibility. Changing the value back to `false` removes only the block managed by this image on the next deployment, including when an existing Railway volume is reused. An explicit value other than `true` or `false` stops startup instead of silently allowing plaintext connections.
 
+### Exporting the CA certificate
+
+Run `export-ssl-ca` inside the deployed database service to print only its public CA certificate. Redirect the output to a `.crt` file and provide that file to clients using `verify-ca` or `verify-full`. Each database instance has its own CA, so export and label the certificate separately for every service.
+
+For example, with the [Railway CLI](https://docs.railway.com/cli/ssh):
+
+```bash
+mkdir -p certs
+railway ssh \
+  --project your-project-id \
+  --service your-service-id \
+  --environment your-environment-id \
+  -- export-ssl-ca > certs/postgres-root.crt
+```
+
+The `>` redirection is processed by your local shell, so the certificate is saved to `certs/postgres-root.crt` on your machine. Replace the placeholder values with the IDs from your Railway project, or copy the SSH command for the database service from the Railway dashboard and append `-- export-ssl-ca`. You can inspect the exported certificate with:
+
+```bash
+openssl x509 -in certs/postgres-root.crt -noout -subject -issuer -dates
+```
+
+The command validates `$PGDATA/certs/root.crt` before writing it to standard output and never reads `root.key` or `server.key`. The CA certificate may be distributed to clients; private key files must never leave the database service.
+
 ## Advanced Behavior & Platform Specifics
 
 The `wrapper.sh` script includes some advanced logic to improve robustness, especially on platforms like Railway.

@@ -91,7 +91,7 @@ verify_certificate_chain() {
 
   # X.509 timestamps have one-second precision. Retry briefly so a clock
   # adjustment around issuance does not make this integration check flaky.
-  for attempt in 1 2 3 4 5; do
+  for attempt in $(seq 1 15); do
     if docker exec "$container_name" openssl verify \
       -purpose sslserver -CAfile "$ca_file" "$certificate_file" \
       > /dev/null 2>&1; then
@@ -102,6 +102,24 @@ verify_certificate_chain() {
 
   docker exec "$container_name" openssl verify \
     -purpose sslserver -CAfile "$ca_file" "$certificate_file"
+}
+
+verify_ca_certificate() {
+  local container_name=$1
+  local ca_file=$2
+  local attempt
+
+  for attempt in $(seq 1 15); do
+    if docker exec "$container_name" openssl verify \
+      -CAfile "$ca_file" "$ca_file" \
+      > /dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  docker exec "$container_name" openssl verify \
+    -CAfile "$ca_file" "$ca_file"
 }
 
 trap cleanup EXIT
@@ -355,6 +373,22 @@ if ! docker exec "$CONTAINER_NAME" openssl x509 \
   exit 1
 fi
 
+echo "Verifying safe CA certificate export..."
+if ! docker exec --user postgres "$CONTAINER_NAME" bash -c '
+  exported_ca=$(export-ssl-ca)
+  installed_ca=$(cat "$PGDATA/certs/root.crt")
+  [ "$exported_ca" = "$installed_ca" ]
+'; then
+  echo "ERROR: export-ssl-ca did not return the installed public CA certificate."
+  exit 1
+fi
+
+if docker exec --user postgres "$CONTAINER_NAME" export-ssl-ca \
+  | grep -q "PRIVATE KEY"; then
+  echo "ERROR: export-ssl-ca exposed private key material."
+  exit 1
+fi
+
 echo "Verifying SSL Key permissions (must be -rw-------)..."
 if ! docker exec "$CONTAINER_NAME" stat -c "%A" "$CERTS_DIR/server.key" | grep -q "\-rw-------"; then
   echo "ERROR: SSL Key permissions are incorrect at $CERTS_DIR!"
@@ -567,6 +601,11 @@ docker exec "$NEXT_CONTAINER_NAME" bash -c '
 
 LEGACY_ROOT_FINGERPRINT=$(docker exec "$NEXT_CONTAINER_NAME" openssl x509 \
   -noout -fingerprint -sha256 -in "$CERTS_DIR/root.crt")
+
+if ! verify_ca_certificate "$NEXT_CONTAINER_NAME" "$CERTS_DIR/root.crt"; then
+  echo "ERROR: The legacy Certificate Authority fixture did not become valid."
+  exit 1
+fi
 
 docker exec "$NEXT_CONTAINER_NAME" \
   bash /docker-entrypoint-initdb.d/init-ssl.sh \

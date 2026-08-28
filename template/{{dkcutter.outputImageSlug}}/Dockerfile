@@ -116,6 +116,7 @@ ENV PG_SHARED_PRELOAD_LIBRARIES=$PG_SHARED_PRELOAD_LIBRARIES
 COPY --chmod=755 ./init-ssl.sh /docker-entrypoint-initdb.d/init-ssl.sh
 COPY --chmod=755 ./init-extensions.sh /docker-entrypoint-initdb.d/init-extensions.sh
 COPY --chmod=755 ./configure-ssl-access.sh /usr/local/bin/configure-ssl-access.sh
+COPY --chmod=755 ./export-ssl-ca.sh /usr/local/bin/export-ssl-ca
 COPY --chmod=755 ./wrapper.sh /usr/local/bin/wrapper.sh
 
 ENTRYPOINT ["wrapper.sh"]
