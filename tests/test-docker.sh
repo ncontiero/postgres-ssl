@@ -535,4 +535,118 @@ done
 
 echo "Legacy CA renewal and certificate repair passed."
 
+echo "Verifying automatic rotation of a Certificate Authority near expiry..."
+docker exec "$NEXT_CONTAINER_NAME" bash -c '
+  set -e
+  work_dir=$(mktemp -d)
+  trap '\''rm -rf -- "$work_dir"'\'' EXIT
+
+  openssl req -new -x509 -days 30 -nodes \
+    -out "$work_dir/root.crt" \
+    -keyout "$work_dir/root.key" \
+    -subj /CN=expiring-root-ca \
+    -addext "basicConstraints = critical, CA:TRUE" \
+    -addext "keyUsage = critical, keyCertSign, cRLSign" \
+    > /dev/null 2>&1
+
+  openssl req -new -nodes \
+    -out "$work_dir/server.csr" \
+    -keyout "$work_dir/server.key" \
+    -subj /CN=localhost \
+    > /dev/null 2>&1
+
+  cat > "$work_dir/v3.ext" <<EOF
+[v3_req]
+authorityKeyIdentifier = keyid, issuer
+basicConstraints = critical, CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = DNS:localhost,DNS:${RAILWAY_PRIVATE_DOMAIN},DNS:${RAILWAY_TCP_PROXY_DOMAIN}
+EOF
+
+  openssl x509 -req \
+    -in "$work_dir/server.csr" \
+    -extfile "$work_dir/v3.ext" \
+    -extensions v3_req \
+    -days 30 \
+    -CA "$work_dir/root.crt" \
+    -CAkey "$work_dir/root.key" \
+    -set_serial "0x$(openssl rand -hex 16)" \
+    -out "$work_dir/server.crt" \
+    > /dev/null 2>&1
+
+  install -m 600 "$work_dir/root.key" "$PGDATA/certs/root.key"
+  install -m 644 "$work_dir/root.crt" "$PGDATA/certs/root.crt"
+  install -m 600 "$work_dir/server.key" "$PGDATA/certs/server.key"
+  install -m 644 "$work_dir/server.crt" "$PGDATA/certs/server.crt"
+'
+
+EXPIRING_ROOT_FINGERPRINT=$(docker exec "$NEXT_CONTAINER_NAME" openssl x509 \
+  -noout -fingerprint -sha256 -in "$CERTS_DIR/root.crt")
+EXPIRING_CERT_FINGERPRINT=$(docker exec "$NEXT_CONTAINER_NAME" openssl x509 \
+  -noout -fingerprint -sha256 -in "$CERTS_DIR/server.crt")
+
+# Wait until the one-second X.509 notBefore precision can no longer make the
+# freshly installed fixture look invalid to the wrapper's strict verification.
+if ! verify_certificate_chain \
+  "$NEXT_CONTAINER_NAME" \
+  "$CERTS_DIR/root.crt" \
+  "$CERTS_DIR/server.crt"; then
+  echo "ERROR: The near-expiry certificate fixture is not a valid server chain."
+  exit 1
+fi
+
+ROTATION_OUTPUT=$(docker exec "$NEXT_CONTAINER_NAME" wrapper.sh true 2>&1)
+
+if ! printf '%s\n' "$ROTATION_OUTPUT" | grep -q "Certificate has expired or will expire soon"; then
+  echo "ERROR: The wrapper did not detect the certificate chain near expiry."
+  echo "$ROTATION_OUTPUT"
+  exit 1
+fi
+
+ROTATED_ROOT_FINGERPRINT=$(docker exec "$NEXT_CONTAINER_NAME" openssl x509 \
+  -noout -fingerprint -sha256 -in "$CERTS_DIR/root.crt")
+ROTATED_CERT_FINGERPRINT=$(docker exec "$NEXT_CONTAINER_NAME" openssl x509 \
+  -noout -fingerprint -sha256 -in "$CERTS_DIR/server.crt")
+
+if [ "$ROTATED_ROOT_FINGERPRINT" = "$EXPIRING_ROOT_FINGERPRINT" ]; then
+  echo "ERROR: The Certificate Authority near expiry was not rotated."
+  exit 1
+fi
+
+if [ "$ROTATED_CERT_FINGERPRINT" = "$EXPIRING_CERT_FINGERPRINT" ]; then
+  echo "ERROR: The server certificate was not renewed during CA rotation."
+  exit 1
+fi
+
+if ! verify_certificate_chain \
+  "$NEXT_CONTAINER_NAME" \
+  "$CERTS_DIR/root.crt" \
+  "$CERTS_DIR/server.crt"; then
+  echo "ERROR: The server certificate does not validate against the rotated CA."
+  exit 1
+fi
+
+if ! docker exec "$NEXT_CONTAINER_NAME" openssl x509 \
+  -checkend $((30 * 86400)) -noout -in "$CERTS_DIR/root.crt" > /dev/null; then
+  echo "ERROR: The rotated Certificate Authority is still inside the renewal window."
+  exit 1
+fi
+
+if ! docker exec "$NEXT_CONTAINER_NAME" openssl x509 \
+  -checkend $((30 * 86400)) -noout -in "$CERTS_DIR/server.crt" > /dev/null; then
+  echo "ERROR: The renewed server certificate is still inside the renewal window."
+  exit 1
+fi
+
+for DNS_NAME in localhost "$PRIVATE_DOMAIN" "$PUBLIC_DOMAIN"; do
+  if ! docker exec "$NEXT_CONTAINER_NAME" openssl x509 \
+    -checkhost "$DNS_NAME" -noout -in "$CERTS_DIR/server.crt" > /dev/null; then
+    echo "ERROR: The certificate generated during CA rotation does not cover '$DNS_NAME'."
+    exit 1
+  fi
+done
+
+echo "Certificate Authority rotation passed."
+
 echo "All integration tests passed successfully!"
