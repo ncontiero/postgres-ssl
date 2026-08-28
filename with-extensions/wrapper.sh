@@ -124,6 +124,37 @@ certificate_has_required_sans() {
   return 0
 }
 
+certificate_matches_private_key() {
+  local certificate=$1
+  local private_key=$2
+  local certificate_public_key
+  local private_public_key
+
+  certificate_public_key=$(openssl x509 -pubkey -noout -in "$certificate" 2>/dev/null) || return 1
+  private_public_key=$(openssl pkey -pubout -in "$private_key" 2>/dev/null) || return 1
+
+  [ "$certificate_public_key" = "$private_public_key" ]
+}
+
+certificate_material_is_valid() {
+  local ssl_dir=$1
+  local root_crt="$ssl_dir/root.crt"
+  local root_key="$ssl_dir/root.key"
+  local server_crt="$ssl_dir/server.crt"
+  local server_key="$ssl_dir/server.key"
+
+  [ -s "$root_crt" ] \
+    && [ -s "$root_key" ] \
+    && [ -s "$server_crt" ] \
+    && [ -s "$server_key" ] \
+    && openssl x509 -noout -ext basicConstraints -in "$root_crt" 2>/dev/null | grep -q "CA:TRUE" \
+    && openssl x509 -noout -ext basicConstraints -in "$server_crt" 2>/dev/null | grep -q "CA:FALSE" \
+    && openssl verify -CAfile "$root_crt" "$root_crt" > /dev/null 2>&1 \
+    && openssl verify -purpose sslserver -CAfile "$root_crt" "$server_crt" > /dev/null 2>&1 \
+    && certificate_matches_private_key "$root_crt" "$root_key" \
+    && certificate_matches_private_key "$server_crt" "$server_key"
+}
+
 # Checks the status of SSL certificates and regenerates them if necessary.
 check_and_regenerate_certs() {
   echo "Checking SSL certificate status..."
@@ -132,23 +163,33 @@ check_and_regenerate_certs() {
   local conf_file="$PGDATA/postgresql.conf"
   local init_script="/docker-entrypoint-initdb.d/init-ssl.sh"
 
-  # Case 1: Certificate exists but does not cover all required hostnames.
+  # Case 1: An initialized database has incomplete, mismatched, or invalid
+  # certificate material.
+  if [ -f "$conf_file" ] && ! certificate_material_is_valid "$ssl_dir"; then
+    echo "WARNING: Invalid SSL certificate material was found. Regenerating certificates..."
+    bash "$init_script"
+    return
+  fi
+
+  # Case 2: Certificate exists but does not cover all required hostnames.
   if [ -f "$cert_file" ] && ! certificate_has_required_sans "$cert_file"; then
     echo "WARNING: The certificate does not contain all required SANs. Regenerating certificates..."
     bash "$init_script"
     return
   fi
 
-  # Case 2: Certificate exists but is expired or will expire within 30 days (2592000 seconds).
+  # Case 3: Server certificate exists but is expired or will expire within 30
+  # days (2592000 seconds).
   if [ -f "$cert_file" ] && ! openssl x509 -checkend 2592000 -noout -in "$cert_file"; then
     echo "WARNING: Certificate has expired or will expire soon. Regenerating certificates..."
     bash "$init_script"
     return
   fi
 
-  # Case 3: Database is initialized but the certificate is missing.
-  if [ -f "$conf_file" ] && [ ! -f "$cert_file" ]; then
-    echo "WARNING: Database is initialized but certificate is missing. Generating certificates..."
+  # Case 4: CA certificate is expired or will expire within 30 days. init-ssl.sh
+  # rotates a CA close to expiry and otherwise preserves it during renewal.
+  if [ -f "$ssl_dir/root.crt" ] && ! openssl x509 -checkend 2592000 -noout -in "$ssl_dir/root.crt"; then
+    echo "WARNING: Certificate Authority has expired or will expire soon. Regenerating certificates..."
     bash "$init_script"
     return
   fi

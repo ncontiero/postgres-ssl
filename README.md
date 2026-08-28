@@ -104,11 +104,13 @@ The server certificate always includes `localhost` in its Subject Alternative Na
 
 ### Certificate Expiry
 
-By default, the self-signed SSL certificate expiry is set to **820 days**. You can control this by passing the `SSL_CERT_DAYS` build argument.
+By default, server certificates are valid for up to **820 days** and the self-signed Certificate Authority (CA) is valid for **3650 days**. These values can be configured at runtime with `SSL_CERT_DAYS` and `SSL_CA_CERT_DAYS`. Invalid values fall back to safe defaults so a configuration typo does not cause a restart loop. A server certificate is automatically shortened when necessary so it never outlives its CA.
 
 ### Automatic Certificate Renewal
 
-The `wrapper.sh` entrypoint script automatically handles certificate renewal. On every container start, it checks whether the certificate contains every required SAN and whether it has expired or will expire within the next **30 days**. If necessary, it regenerates the certificate, ensuring uninterrupted SSL-encrypted connections. Because the configuration logic is idempotent, this process will not cause duplicate entries in `postgresql.conf`.
+The `wrapper.sh` entrypoint script automatically handles certificate renewal. On every container start, it validates the certificate purposes, chain and key pairs, checks every required SAN, and checks whether the server certificate or CA will expire within the next **30 days**. Generated files are validated before installation; each file is atomically replaced, and an interrupted or inconsistent set is repaired on the next startup.
+
+A valid CA with enough operational margin is preserved when the server certificate is renewed, so clients using `verify-ca` or `verify-full` can continue trusting the same `root.crt`. This includes CAs created by older image versions that used the same validity as the server certificate. The CA is rotated only when it is invalid or close to expiry.
 
 ## Advanced Behavior & Platform Specifics
 
