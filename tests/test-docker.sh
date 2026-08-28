@@ -21,8 +21,10 @@ IMAGE_NAME="postgres-test:${POSTGRES_VERSION}"
 CONTAINER_NAME="pg-test-${POSTGRES_VERSION}"
 CONTENDER_NAME="pg-test-${POSTGRES_VERSION}-contender"
 NEXT_CONTAINER_NAME="pg-test-${POSTGRES_VERSION}-next"
+TLS_CONTAINER_NAME="pg-test-${POSTGRES_VERSION}-tls"
 VOLUME_NAME="pg-test-${POSTGRES_VERSION}-data"
 MISMATCH_VOLUME_NAME="pg-test-${POSTGRES_VERSION}-mismatch"
+TLS_VOLUME_NAME="pg-test-${POSTGRES_VERSION}-tls-data"
 PRIVATE_DOMAIN="postgres.railway.internal"
 PUBLIC_DOMAIN="postgres-test.proxy.rlwy.net"
 
@@ -55,8 +57,8 @@ fi
 
 cleanup() {
   echo "Cleaning up containers and volume..."
-  docker rm -f "$NEXT_CONTAINER_NAME" "$CONTENDER_NAME" "$CONTAINER_NAME" > /dev/null 2>&1 || true
-  docker volume rm "$MISMATCH_VOLUME_NAME" "$VOLUME_NAME" > /dev/null 2>&1 || true
+  docker rm -f "$TLS_CONTAINER_NAME" "$NEXT_CONTAINER_NAME" "$CONTENDER_NAME" "$CONTAINER_NAME" > /dev/null 2>&1 || true
+  docker volume rm "$TLS_VOLUME_NAME" "$MISMATCH_VOLUME_NAME" "$VOLUME_NAME" > /dev/null 2>&1 || true
 }
 
 wait_for_postgres() {
@@ -192,6 +194,102 @@ fi
 echo ""
 
 echo "Postgres is healthy and ready!"
+
+echo "Verifying backward-compatible plaintext connections by default..."
+if ! docker exec -e PGPASSWORD=test_password "$CONTAINER_NAME" psql \
+  "host=localhost user=postgres dbname=postgres sslmode=disable connect_timeout=3" \
+  --tuples-only --no-align -c "SELECT 1" \
+  | grep -qx 1; then
+  echo "ERROR: A plaintext connection failed while SSL_REQUIRE was disabled."
+  exit 1
+fi
+
+echo "Verifying opt-in TLS enforcement on a new database..."
+docker volume create "$TLS_VOLUME_NAME" > /dev/null
+docker run -d --name "$TLS_CONTAINER_NAME" \
+  -e POSTGRES_PASSWORD=test_password \
+  -e SSL_REQUIRE=true \
+  -e RAILWAY_ENVIRONMENT=true \
+  -e RAILWAY_VOLUME_MOUNT_PATH="$MOUNT_PATH" \
+  -e PGDATA="$DATA_PATH" \
+  -v "$TLS_VOLUME_NAME:$MOUNT_PATH" \
+  "$IMAGE_NAME" \
+  > /dev/null
+
+if ! wait_for_postgres "$TLS_CONTAINER_NAME"; then
+  echo ""
+  echo "ERROR: Postgres failed to initialize with SSL_REQUIRE enabled."
+  docker logs "$TLS_CONTAINER_NAME"
+  exit 1
+fi
+echo ""
+
+if ! docker exec -e PGPASSWORD=test_password "$TLS_CONTAINER_NAME" psql \
+  "host=localhost user=postgres dbname=postgres sslmode=require connect_timeout=3" \
+  --tuples-only --no-align -c "SELECT 1" \
+  | grep -qx 1; then
+  echo "ERROR: A TLS connection failed while SSL_REQUIRE was enabled."
+  exit 1
+fi
+
+if PLAINTEXT_OUTPUT=$(docker exec -e PGPASSWORD=test_password "$TLS_CONTAINER_NAME" psql \
+  "host=localhost user=postgres dbname=postgres sslmode=disable connect_timeout=3" \
+  --tuples-only --no-align -c "SELECT 1" 2>&1); then
+  echo "ERROR: A plaintext connection succeeded while SSL_REQUIRE was enabled."
+  exit 1
+fi
+
+if ! printf '%s\n' "$PLAINTEXT_OUTPUT" | grep -q "no encryption"; then
+  echo "ERROR: The plaintext connection was not rejected by the managed pg_hba.conf rule."
+  echo "$PLAINTEXT_OUTPUT"
+  exit 1
+fi
+
+docker exec -e SSL_REQUIRE=true "$TLS_CONTAINER_NAME" wrapper.sh true > /dev/null
+MANAGED_DATABASE_RULE_COUNT=$(docker exec "$TLS_CONTAINER_NAME" grep -Fxc \
+  "hostnossl all all all reject" "$DATA_PATH/pg_hba.conf")
+MANAGED_REPLICATION_RULE_COUNT=$(docker exec "$TLS_CONTAINER_NAME" grep -Fxc \
+  "hostnossl replication all all reject" "$DATA_PATH/pg_hba.conf")
+if [ "$MANAGED_DATABASE_RULE_COUNT" != 1 ] || [ "$MANAGED_REPLICATION_RULE_COUNT" != 1 ]; then
+  echo "ERROR: Reapplying SSL_REQUIRE did not preserve exactly one of each managed pg_hba.conf rule."
+  exit 1
+fi
+
+docker exec -e SSL_REQUIRE=false "$TLS_CONTAINER_NAME" wrapper.sh true > /dev/null
+docker exec "$TLS_CONTAINER_NAME" psql --username postgres --dbname postgres \
+  -c "SELECT pg_reload_conf()" > /dev/null
+
+if docker exec "$TLS_CONTAINER_NAME" grep -Fq \
+  "postgres-ssl managed TLS requirement" "$DATA_PATH/pg_hba.conf"; then
+  echo "ERROR: Disabling SSL_REQUIRE did not remove its managed pg_hba.conf block."
+  exit 1
+fi
+
+if ! docker exec -e PGPASSWORD=test_password "$TLS_CONTAINER_NAME" psql \
+  "host=localhost user=postgres dbname=postgres sslmode=disable connect_timeout=3" \
+  --tuples-only --no-align -c "SELECT 1" \
+  | grep -qx 1; then
+  echo "ERROR: A plaintext connection did not recover after disabling SSL_REQUIRE."
+  exit 1
+fi
+
+if INVALID_SSL_REQUIRE_OUTPUT=$(docker exec -e SSL_REQUIRE=invalid \
+  "$TLS_CONTAINER_NAME" wrapper.sh true 2>&1); then
+  echo "ERROR: The wrapper accepted an invalid SSL_REQUIRE value."
+  exit 1
+fi
+
+if ! printf '%s\n' "$INVALID_SSL_REQUIRE_OUTPUT" \
+  | grep -q "SSL_REQUIRE must be 'true' or 'false'"; then
+  echo "ERROR: Invalid SSL_REQUIRE did not produce the expected error."
+  echo "$INVALID_SSL_REQUIRE_OUTPUT"
+  exit 1
+fi
+
+docker rm -f "$TLS_CONTAINER_NAME" > /dev/null
+docker volume rm "$TLS_VOLUME_NAME" > /dev/null
+
+echo "TLS enforcement and rollback passed."
 
 SERVER_VERSION=$(docker exec "$CONTAINER_NAME" psql \
   --username postgres \

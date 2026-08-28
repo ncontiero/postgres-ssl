@@ -313,4 +313,6 @@ if [ "$(id -u)" = '0' ]; then
   chown -R postgres:postgres "$SSL_DIR"
 fi
 
+bash /usr/local/bin/configure-ssl-access.sh "$PGDATA/pg_hba.conf"
+
 echo "SSL initialization complete."

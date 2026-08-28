@@ -112,6 +112,12 @@ The `wrapper.sh` entrypoint script automatically handles certificate renewal. On
 
 A valid CA with enough operational margin is preserved when the server certificate is renewed, so clients using `verify-ca` or `verify-full` can continue trusting the same `root.crt`. This includes CAs created by older image versions that used the same validity as the server certificate. The CA is rotated only when it is invalid or close to expiry.
 
+### Requiring TLS connections
+
+Set `SSL_REQUIRE=true` to reject TCP connections that do not negotiate TLS. The image installs managed `hostnossl` rules for database and physical replication connections at the beginning of `pg_hba.conf`, before PostgreSQL's permissive host rules. Local Unix-socket access remains available for initialization and administration.
+
+The default is `false` for backward compatibility. Changing the value back to `false` removes only the block managed by this image on the next deployment, including when an existing Railway volume is reused. An explicit value other than `true` or `false` stops startup instead of silently allowing plaintext connections.
+
 ## Advanced Behavior & Platform Specifics
 
 The `wrapper.sh` script includes some advanced logic to improve robustness, especially on platforms like Railway.

@@ -213,6 +213,7 @@ case "${1:-}" in
   postgres|-*) acquire_runtime_lock ;;
 esac
 
+bash /usr/local/bin/configure-ssl-access.sh "$PGDATA/pg_hba.conf"
 check_and_regenerate_certs
 
 # Unset Railway-specific environment variables that can interfere with psql/postgres.
