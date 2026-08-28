@@ -104,7 +104,7 @@ The server certificate always includes `localhost` in its Subject Alternative Na
 
 ### Certificate Expiry
 
-By default, server certificates are valid for up to **820 days** and the self-signed Certificate Authority (CA) is valid for **3650 days**. These values can be configured at runtime with `SSL_CERT_DAYS` and `SSL_CA_CERT_DAYS`. Invalid values fall back to safe defaults so a configuration typo does not cause a restart loop. A server certificate is automatically shortened when necessary so it never outlives its CA.
+By default, server certificates are valid for up to **820 days** and the self-signed Certificate Authority (CA) is valid for **3650 days**. These values can be configured at runtime with `SSL_CERT_DAYS` and `SSL_CA_CERT_DAYS`. Server certificates require at least **32 days** and CAs at least **33 days**, keeping them outside the 30-day renewal window when issued. Invalid or shorter values fall back to safe defaults so a configuration typo does not cause a restart loop. A server certificate is automatically shortened when necessary so it never outlives its CA.
 
 ### Automatic Certificate Renewal
 

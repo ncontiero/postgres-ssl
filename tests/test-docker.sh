@@ -428,6 +428,24 @@ if ! printf '%s\n' "$FALLBACK_OUTPUT" | grep -q "SSL_CA_CERT_DAYS must be a posi
   exit 1
 fi
 
+SHORT_VALIDITY_OUTPUT=$(docker exec \
+  -e SSL_CERT_DAYS=30 \
+  -e SSL_CA_CERT_DAYS=32 \
+  "$NEXT_CONTAINER_NAME" \
+  bash /docker-entrypoint-initdb.d/init-ssl.sh 2>&1)
+
+if ! printf '%s\n' "$SHORT_VALIDITY_OUTPUT" | grep -q "SSL_CERT_DAYS must be at least 32 days; using 820"; then
+  echo "ERROR: A server-certificate lifetime inside the renewal window did not use the safe default."
+  echo "$SHORT_VALIDITY_OUTPUT"
+  exit 1
+fi
+
+if ! printf '%s\n' "$SHORT_VALIDITY_OUTPUT" | grep -q "SSL_CA_CERT_DAYS must be at least 33 days; using 3650"; then
+  echo "ERROR: A CA lifetime without a safe renewal margin did not use the safe default."
+  echo "$SHORT_VALIDITY_OUTPUT"
+  exit 1
+fi
+
 if [ "$(docker exec "$NEXT_CONTAINER_NAME" openssl x509 -noout -fingerprint -sha256 -in "$CERTS_DIR/root.crt")" != "$FALLBACK_ROOT_FINGERPRINT" ]; then
   echo "ERROR: Invalid certificate settings unexpectedly rotated the Certificate Authority."
   exit 1

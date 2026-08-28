@@ -5,6 +5,8 @@ set -e
 
 EXPECTED_VOLUME_MOUNT_PATH="/var/lib/postgresql{{ '/data' if dkcutter._postgresMajorVersion < 18 }}"
 EXPECTED_POSTGRES_MAJOR="{{ dkcutter._postgresMajorVersion }}"
+SSL_RENEWAL_DAYS=30
+SSL_RENEWAL_SECONDS=$((SSL_RENEWAL_DAYS * 86400))
 
 # ==============================================================================
 # FUNCTION DEFINITIONS
@@ -178,17 +180,17 @@ check_and_regenerate_certs() {
     return
   fi
 
-  # Case 3: Server certificate exists but is expired or will expire within 30
-  # days (2592000 seconds).
-  if [ -f "$cert_file" ] && ! openssl x509 -checkend 2592000 -noout -in "$cert_file"; then
+  # Case 3: Server certificate exists but is expired or will expire within the
+  # configured renewal window.
+  if [ -f "$cert_file" ] && ! openssl x509 -checkend "$SSL_RENEWAL_SECONDS" -noout -in "$cert_file"; then
     echo "WARNING: Certificate has expired or will expire soon. Regenerating certificates..."
     bash "$init_script"
     return
   fi
 
-  # Case 4: CA certificate is expired or will expire within 30 days. init-ssl.sh
-  # rotates a CA close to expiry and otherwise preserves it during renewal.
-  if [ -f "$ssl_dir/root.crt" ] && ! openssl x509 -checkend 2592000 -noout -in "$ssl_dir/root.crt"; then
+  # Case 4: CA certificate is expired or will expire within the renewal window.
+  # init-ssl.sh rotates a CA close to expiry and otherwise preserves it.
+  if [ -f "$ssl_dir/root.crt" ] && ! openssl x509 -checkend "$SSL_RENEWAL_SECONDS" -noout -in "$ssl_dir/root.crt"; then
     echo "WARNING: Certificate Authority has expired or will expire soon. Regenerating certificates..."
     bash "$init_script"
     return
