@@ -2,7 +2,7 @@
   "name": "postgres-ssl",
   "type": "module",
   "version": "1.0.0",
-  "packageManager": "bun@1.4.0",
+  "packageManager": "bun@1.4.2",
   "description": "This repository contains the logic to build SSL-enabled Postgres images.",
   "author": "Nicolas Contiero <https://github.com/ncontiero>",
   "license": "MIT",
@@ -19,10 +19,10 @@
   },
   "devDependencies": {
     "@ncontiero/eslint-config": "8.4.5",
-    "@types/bun": "1.4.0",
+    "@types/bun": "1.4.2",
     "@typescript/native": "npm:typescript@7.0.2",
     "dkcutter": "7.0.0",
-    "eslint": "10.9.1",
+    "eslint": "10.10.0",
     "typescript": "npm:@typescript/typescript6@6.0.2"
   },
   "engines": {
