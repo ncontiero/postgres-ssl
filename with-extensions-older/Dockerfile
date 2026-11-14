@@ -1,6 +1,6 @@
 # Generated automatically via DKCutter
-# postgres version: 17.11
-ARG POSTGRES_VERSION=17.11
+# postgres version: 17.12
+ARG POSTGRES_VERSION=17.12
 FROM postgres:${POSTGRES_VERSION}
 
 # ==============================================================================
