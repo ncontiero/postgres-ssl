@@ -69,7 +69,7 @@ Use these `ARG` variables when building your Docker image to install packages an
 To build an image with TimescaleDB and PostGIS, enable them, and preload `timescaledb`, all at build-time:
 
 ```bash
-docker build . \
+docker build with-extensions \
   --build-arg PG_EXTENSION_REPOS="https://packagecloud.io/timescale/timescaledb/debian/ trixie main" \
   --build-arg PG_EXTENSION_REPO_KEYS="https://packagecloud.io/timescale/timescaledb/gpgkey" \
   --build-arg PG_APT_PACKAGES="postgresql-18-postgis-3,timescaledb-2-postgresql-18" \
@@ -146,6 +146,8 @@ The command validates `$PGDATA/certs/root.crt` before writing it to standard out
 The `wrapper.sh` script includes some advanced logic to improve robustness, especially on platforms like Railway.
 
 - **Railway Volume Validation**: On Railway, the wrapper verifies that `RAILWAY_VOLUME_MOUNT_PATH` is set to the expected path (which is `/var/lib/postgresql` for PostgreSQL 18+ or `/var/lib/postgresql/data` for older versions) and that the `PGDATA` variable is correctly located within this path. This prevents common misconfigurations that could lead to data loss.
+- **PostgreSQL Major-Version Validation**: When `PGDATA/PG_VERSION` exists, startup verifies that it matches the image major version. Changing an image tag does not perform a database upgrade, so a mismatch stops startup with an actionable error.
+- **Persistent-Volume Locking**: The wrapper acquires an exclusive lock for the mounted PostgreSQL volume before starting the server. During overlapping Railway deployments, a new container waits up to `RUNTIME_LOCK_WAIT_SECONDS` (300 by default) instead of allowing two PostgreSQL processes to use the same data directory.
 - **`PGHOST` and `PGPORT` Unsetting**: Before initialization, the wrapper unsets the `PGHOST` and `PGPORT` environment variables. This is a Railway-specific fix to ensure tools like `psql` use the local Unix socket for connections during setup, avoiding conflicts with proxied connection variables.
 - **`shared_preload_libraries` Injection**: If you provide `PG_SHARED_PRELOAD_LIBRARIES` as an environment variable (instead of a build argument), the wrapper script will dynamically inject it into the `postgres` startup command, ensuring the libraries are loaded even if they weren't configured in `postgresql.conf`.
 
@@ -154,20 +156,20 @@ The `wrapper.sh` script includes some advanced logic to improve robustness, espe
 Images are automatically built weekly and tagged with multiple version levels
 for flexibility:
 
-- **Major version tags** (e.g., `:17`, `:16`, `:15`): Always points to the
+- **Major version tags** (e.g., `:18`, `:17`, `:16`): Always point to the
   latest minor version for that major release
-- **Minor version tags** (e.g., `:17.6`, `:16.10`): Pins to specific minor
+- **Version tags** (e.g., `:18.7`, `:17.12`): Pin a specific PostgreSQL
   version for stability
-- **Latest tag** (`:latest`): Currently points to PostgreSQL latest
+- **Latest tag** (`:latest`): Currently points to PostgreSQL 18.7
 
 Example usage:
 
 ```bash
 # Auto-update to latest minor versions (recommended for development)
-docker run ghcr.io/ncontiero/postgres-ssl:17
+docker run ghcr.io/ncontiero/postgres-ssl:18
 
 # Pin to specific minor version (recommended for production)
-docker run ghcr.io/ncontiero/postgres-ssl:17.6
+docker run ghcr.io/ncontiero/postgres-ssl:18.7
 ```
 
 ## References and inspirations
