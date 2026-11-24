@@ -46,15 +46,6 @@
         "linux/amd64",
         "linux/arm64"
       ]
-    },
-    {
-      "postgres_version": "14.25",
-      "postgres_major_version": "14",
-      "is_latest": false,
-      "platforms": [
-        "linux/amd64",
-        "linux/arm64"
-      ]
     }
   ]
 }
