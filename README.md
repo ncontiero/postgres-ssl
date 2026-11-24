@@ -60,19 +60,29 @@ Use these `ARG` variables when building your Docker image to install packages an
 - `POSTGRES_VERSION`: Specifies the base PostgreSQL version to use when building the image. This overrides the default major version of the selected template folder (e.g., you can set it to `19.0`, `18.7`, or `17.12`). **Warning:** Ensure the major version you specify matches the directory you are building from (`with-extensions` for 18+, `with-extensions-older` for 17 and older) to avoid volume mount path errors and validation failures.
 - `PG_EXTENSION_REPOS`: A comma-separated list of APT repository URLs to add (e.g., `https://packagecloud.io/timescale/timescaledb/debian/ trixie main`).
 - `PG_EXTENSION_REPO_KEYS`: A comma-separated list of GPG key URLs corresponding to `PG_EXTENSION_REPOS`.
-- `PG_APT_PACKAGES`: A comma-separated list of APT package names for the extensions (e.g., `postgresql-19-postgis-3,timescaledb-2-postgresql-19`).
+- `PG_APT_PACKAGES`: A comma-separated list of APT package names for the extensions (e.g., `postgresql-19-postgis-3,postgresql-19-pgvector` or `postgresql-18-postgis-3,timescaledb-2-postgresql-18`).
 - `PG_DB_EXTENSIONS`: A comma-separated list of extension names to enable in the database (e.g., `postgis,pg_cron,timescaledb`).
 - `PG_SHARED_PRELOAD_LIBRARIES`: A comma-separated list of shared libraries to preload (e.g., `timescaledb`).
 
-### Example
+### Examples
 
-To build an image with TimescaleDB and PostGIS, enable them, and preload `timescaledb`, all at build-time:
+To build a PostgreSQL 19 image with PostGIS and `pgvector`, and enable them at build-time:
 
 ```bash
 docker build with-extensions \
+  --build-arg PG_APT_PACKAGES="postgresql-19-postgis-3,postgresql-19-pgvector" \
+  --build-arg PG_DB_EXTENSIONS="postgis,vector" \
+  -t my-postgres-with-extensions:latest
+```
+
+To build a PostgreSQL 18 image with TimescaleDB (from a custom APT repository) and PostGIS, enable them, and preload `timescaledb`:
+
+```bash
+docker build with-extensions \
+  --build-arg POSTGRES_VERSION="18.7" \
   --build-arg PG_EXTENSION_REPOS="https://packagecloud.io/timescale/timescaledb/debian/ trixie main" \
   --build-arg PG_EXTENSION_REPO_KEYS="https://packagecloud.io/timescale/timescaledb/gpgkey" \
-  --build-arg PG_APT_PACKAGES="postgresql-19-postgis-3,timescaledb-2-postgresql-19" \
+  --build-arg PG_APT_PACKAGES="postgresql-18-postgis-3,timescaledb-2-postgresql-18" \
   --build-arg PG_DB_EXTENSIONS="postgis,timescaledb" \
   --build-arg PG_SHARED_PRELOAD_LIBRARIES="timescaledb" \
   -t my-postgres-with-extensions:latest

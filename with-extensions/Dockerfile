@@ -34,7 +34,7 @@ RUN apt-mark hold \
 # Example usage:
 # --build-arg PG_EXTENSION_REPOS="https://packagecloud.io/timescale/timescaledb/debian/ trixie main"
 # --build-arg PG_EXTENSION_REPO_KEYS="https://packagecloud.io/timescale/timescaledb/gpgkey"
-# --build-arg PG_APT_PACKAGES="postgresql-19-postgis-3,timescaledb-2-postgresql-19"
+# --build-arg PG_APT_PACKAGES="postgresql-18-postgis-3,timescaledb-2-postgresql-18"
 ARG PG_EXTENSION_REPOS=""
 ARG PG_EXTENSION_REPO_KEYS=""
 ARG PG_APT_PACKAGES=""
