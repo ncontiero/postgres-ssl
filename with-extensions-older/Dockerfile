@@ -11,14 +11,14 @@ FROM postgres:${POSTGRES_VERSION}
 # so the image continues to contain the PostgreSQL minor selected above.
 # ==============================================================================
 RUN apt-mark hold \
-        postgresql-17 \
-        postgresql-client-17 \
+        "postgresql-${PG_MAJOR}" \
+        "postgresql-client-${PG_MAJOR}" \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         openssl \
     && apt-mark unhold \
-        postgresql-17 \
-        postgresql-client-17 \
+        "postgresql-${PG_MAJOR}" \
+        "postgresql-client-${PG_MAJOR}" \
     && rm -rf /var/lib/apt/lists/*
 
 # ==============================================================================
@@ -34,7 +34,7 @@ RUN apt-mark hold \
 # Example usage:
 # --build-arg PG_EXTENSION_REPOS="https://packagecloud.io/timescale/timescaledb/debian/ trixie main"
 # --build-arg PG_EXTENSION_REPO_KEYS="https://packagecloud.io/timescale/timescaledb/gpgkey"
-# --build-arg PG_APT_PACKAGES="postgresql-18-postgis-3,timescaledb-2-postgresql-18"
+# --build-arg PG_APT_PACKAGES="postgresql-17-postgis-3,timescaledb-2-postgresql-17"
 ARG PG_EXTENSION_REPOS=""
 ARG PG_EXTENSION_REPO_KEYS=""
 ARG PG_APT_PACKAGES=""
@@ -49,7 +49,7 @@ RUN \
         exit 0; \
     fi; \
     set -e; \
-    apt-mark hold postgresql-17 postgresql-client-17; \
+    apt-mark hold "postgresql-${PG_MAJOR}" "postgresql-client-${PG_MAJOR}"; \
     \
     if [ -n "$PG_EXTENSION_REPOS" ]; then \
         apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
@@ -89,7 +89,7 @@ RUN \
     \
     echo "Installing packages: $packages"; \
     apt-get install -y --no-install-recommends $packages; \
-    apt-mark unhold postgresql-17 postgresql-client-17; \
+    apt-mark unhold "postgresql-${PG_MAJOR}" "postgresql-client-${PG_MAJOR}"; \
     \
     # Clean up the APT cache to reduce final image size.
     rm -rf /var/lib/apt/lists/*;
