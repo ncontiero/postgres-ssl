@@ -155,11 +155,7 @@ if ! printf '%s\n' "$INVALID_OUTPUT" | grep -q "PGDATA is outside the expected v
 fi
 
 echo "Verifying PostgreSQL major-version compatibility..."
-if [ "$MAJOR_VERSION" = "18" ]; then
-  INCOMPATIBLE_MAJOR=17
-else
-  INCOMPATIBLE_MAJOR=18
-fi
+INCOMPATIBLE_MAJOR=$((MAJOR_VERSION - 1))
 
 docker volume create "$MISMATCH_VOLUME_NAME" > /dev/null
 docker run --rm \

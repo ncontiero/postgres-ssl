@@ -11,14 +11,14 @@ FROM postgres:${POSTGRES_VERSION}
 # so the image continues to contain the PostgreSQL minor selected above.
 # ==============================================================================
 RUN apt-mark hold \
-        postgresql-{{ dkcutter._postgresMajorVersion }} \
-        postgresql-client-{{ dkcutter._postgresMajorVersion }} \
+        "postgresql-${PG_MAJOR}" \
+        "postgresql-client-${PG_MAJOR}" \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         openssl \
     && apt-mark unhold \
-        postgresql-{{ dkcutter._postgresMajorVersion }} \
-        postgresql-client-{{ dkcutter._postgresMajorVersion }} \
+        "postgresql-${PG_MAJOR}" \
+        "postgresql-client-${PG_MAJOR}" \
     && rm -rf /var/lib/apt/lists/*
 
 # ==============================================================================
@@ -49,7 +49,7 @@ RUN \
         exit 0; \
     fi; \
     set -e; \
-    apt-mark hold postgresql-{{ dkcutter._postgresMajorVersion }} postgresql-client-{{ dkcutter._postgresMajorVersion }}; \
+    apt-mark hold "postgresql-${PG_MAJOR}" "postgresql-client-${PG_MAJOR}"; \
     \
     if [ -n "$PG_EXTENSION_REPOS" ]; then \
         apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
@@ -89,7 +89,7 @@ RUN \
     \
     echo "Installing packages: $packages"; \
     apt-get install -y --no-install-recommends $packages; \
-    apt-mark unhold postgresql-{{ dkcutter._postgresMajorVersion }} postgresql-client-{{ dkcutter._postgresMajorVersion }}; \
+    apt-mark unhold "postgresql-${PG_MAJOR}" "postgresql-client-${PG_MAJOR}"; \
     \
     # Clean up the APT cache to reduce final image size.
     rm -rf /var/lib/apt/lists/*;

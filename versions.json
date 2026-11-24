@@ -1,10 +1,19 @@
 {
   "versions": [
     {
-      "postgres_version": "18.7",
-      "postgres_major_version": "18",
+      "postgres_version": "19.0",
+      "postgres_major_version": "19",
       "is_latest": true,
       "extension_template": "with-extensions",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ]
+    },
+    {
+      "postgres_version": "18.7",
+      "postgres_major_version": "18",
+      "is_latest": false,
       "platforms": [
         "linux/amd64",
         "linux/arm64"

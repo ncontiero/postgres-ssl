@@ -31,7 +31,7 @@ This template builds the image directly on Railway using a specific `Dockerfile`
 > - **PostgreSQL 18+**: Use `-v my-volume:/var/lib/postgresql`
 > - **PostgreSQL 17 and older**: Use `-v my-volume:/var/lib/postgresql/data`
 >
-> Both Railway templates (Standard and With Extensions) use PostgreSQL 18 by default, so this note is especially relevant for users of that platform.
+> Both Railway templates (Standard and With Extensions) use PostgreSQL 19 by default, so this note is especially relevant for users of that platform.
 
 ## How does it work?
 
@@ -57,19 +57,29 @@ If you prefer, you can separate the installation of extension _packages_ (build-
 
 Use these `ARG` variables when building your Docker image to install packages and enable extensions.
 
-- `POSTGRES_VERSION`: Specifies the base PostgreSQL version to use when building the image. This overrides the default major version of the selected template folder (e.g., you can set it to `18.2` or `17.4`). **Warning:** Ensure the major version you specify matches the directory you are building from (`with-extensions` for 18+, `with-extensions-older` for 17 and older) to avoid volume mount path errors and validation failures.
+- `POSTGRES_VERSION`: Specifies the base PostgreSQL version to use when building the image. This overrides the default major version of the selected template folder (e.g., you can set it to `19.0`, `18.7`, or `17.12`). **Warning:** Ensure the major version you specify matches the directory you are building from (`with-extensions` for 18+, `with-extensions-older` for 17 and older) to avoid volume mount path errors and validation failures.
 - `PG_EXTENSION_REPOS`: A comma-separated list of APT repository URLs to add (e.g., `https://packagecloud.io/timescale/timescaledb/debian/ trixie main`).
 - `PG_EXTENSION_REPO_KEYS`: A comma-separated list of GPG key URLs corresponding to `PG_EXTENSION_REPOS`.
-- `PG_APT_PACKAGES`: A comma-separated list of APT package names for the extensions (e.g., `postgresql-18-postgis-3,timescaledb-2-postgresql-18`).
+- `PG_APT_PACKAGES`: A comma-separated list of APT package names for the extensions (e.g., `postgresql-19-postgis-3,postgresql-19-pgvector` or `postgresql-18-postgis-3,timescaledb-2-postgresql-18`).
 - `PG_DB_EXTENSIONS`: A comma-separated list of extension names to enable in the database (e.g., `postgis,pg_cron,timescaledb`).
 - `PG_SHARED_PRELOAD_LIBRARIES`: A comma-separated list of shared libraries to preload (e.g., `timescaledb`).
 
-### Example
+### Examples
 
-To build an image with TimescaleDB and PostGIS, enable them, and preload `timescaledb`, all at build-time:
+To build a PostgreSQL 19 image with PostGIS and `pgvector`, and enable them at build-time:
 
 ```bash
 docker build with-extensions \
+  --build-arg PG_APT_PACKAGES="postgresql-19-postgis-3,postgresql-19-pgvector" \
+  --build-arg PG_DB_EXTENSIONS="postgis,vector" \
+  -t my-postgres-with-extensions:latest
+```
+
+To build a PostgreSQL 18 image with TimescaleDB (from a custom APT repository) and PostGIS, enable them, and preload `timescaledb`:
+
+```bash
+docker build with-extensions \
+  --build-arg POSTGRES_VERSION="18.7" \
   --build-arg PG_EXTENSION_REPOS="https://packagecloud.io/timescale/timescaledb/debian/ trixie main" \
   --build-arg PG_EXTENSION_REPO_KEYS="https://packagecloud.io/timescale/timescaledb/gpgkey" \
   --build-arg PG_APT_PACKAGES="postgresql-18-postgis-3,timescaledb-2-postgresql-18" \
@@ -156,20 +166,20 @@ The `wrapper.sh` script includes some advanced logic to improve robustness, espe
 Images are automatically built weekly and tagged with multiple version levels
 for flexibility:
 
-- **Major version tags** (e.g., `:18`, `:17`, `:16`): Always point to the
+- **Major version tags** (e.g., `:19`, `:18`, `:17`): Always point to the
   latest minor version for that major release
-- **Version tags** (e.g., `:18.7`, `:17.12`): Pin a specific PostgreSQL
+- **Version tags** (e.g., `:19.0`, `:18.7`): Pin a specific PostgreSQL
   version for stability
-- **Latest tag** (`:latest`): Currently points to PostgreSQL 18.7
+- **Latest tag** (`:latest`): Currently points to PostgreSQL 19.0
 
 Example usage:
 
 ```bash
 # Auto-update to latest minor versions (recommended for development)
-docker run ghcr.io/ncontiero/postgres-ssl:18
+docker run ghcr.io/ncontiero/postgres-ssl:19
 
 # Pin to specific minor version (recommended for production)
-docker run ghcr.io/ncontiero/postgres-ssl:18.7
+docker run ghcr.io/ncontiero/postgres-ssl:19.0
 ```
 
 ## References and inspirations

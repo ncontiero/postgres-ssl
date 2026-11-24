@@ -1,6 +1,6 @@
 # Generated automatically via DKCutter
-# postgres version: 18.7
-ARG POSTGRES_VERSION=18.7
+# postgres version: 19.0
+ARG POSTGRES_VERSION=19.0
 FROM postgres:${POSTGRES_VERSION}
 
 # ==============================================================================
@@ -11,14 +11,14 @@ FROM postgres:${POSTGRES_VERSION}
 # so the image continues to contain the PostgreSQL minor selected above.
 # ==============================================================================
 RUN apt-mark hold \
-        postgresql-18 \
-        postgresql-client-18 \
+        "postgresql-${PG_MAJOR}" \
+        "postgresql-client-${PG_MAJOR}" \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         openssl \
     && apt-mark unhold \
-        postgresql-18 \
-        postgresql-client-18 \
+        "postgresql-${PG_MAJOR}" \
+        "postgresql-client-${PG_MAJOR}" \
     && rm -rf /var/lib/apt/lists/*
 
 # ==============================================================================
@@ -49,7 +49,7 @@ RUN \
         exit 0; \
     fi; \
     set -e; \
-    apt-mark hold postgresql-18 postgresql-client-18; \
+    apt-mark hold "postgresql-${PG_MAJOR}" "postgresql-client-${PG_MAJOR}"; \
     \
     if [ -n "$PG_EXTENSION_REPOS" ]; then \
         apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
@@ -89,7 +89,7 @@ RUN \
     \
     echo "Installing packages: $packages"; \
     apt-get install -y --no-install-recommends $packages; \
-    apt-mark unhold postgresql-18 postgresql-client-18; \
+    apt-mark unhold "postgresql-${PG_MAJOR}" "postgresql-client-${PG_MAJOR}"; \
     \
     # Clean up the APT cache to reduce final image size.
     rm -rf /var/lib/apt/lists/*;

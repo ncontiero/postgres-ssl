@@ -1,8 +1,8 @@
 {
   "$schema": "https://dkcutter.ncontiero.com/schema.json",
   "postgresVersion": {
-    "value": "18",
-    "promptMessage": "What PostgreSQL version would you like to use? (e.g. 15, 17.6)",
+    "value": "19",
+    "promptMessage": "What PostgreSQL version would you like to use? (e.g. 17, 19.0)",
     "validateRegex": {
       "regex": "^(?:[1-9]\\d*(.\\d+)?|latest)$",
       "message": "Invalid PostgreSQL version."
@@ -10,7 +10,7 @@
   },
   "outputImageSlug": {
     "value": "{{ postgresVersion }}",
-    "promptMessage": "What would you like to use as the output image slug? (e.g. 'latest', '18', '18-alpine')",
+    "promptMessage": "What would you like to use as the output image slug? (e.g. 'latest', '19', '19-alpine')",
     "validateRegex": {
       "regex": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$",
       "message": "Invalid image slug. It must start with an alphanumeric character and can only contain alphanumeric characters, dots, dashes, and underscores."

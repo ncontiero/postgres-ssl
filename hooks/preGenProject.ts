@@ -5,7 +5,7 @@ const postgresMajorVersion = Number("{{ dkcutter._postgresMajorVersion }}");
 
 if (
   postgresVersion !== "latest" &&
-  (postgresMajorVersion < 13 || postgresMajorVersion > 18)
+  (postgresMajorVersion < 13 || postgresMajorVersion > 19)
 ) {
   logger.error(`Unsupported postgres version: ${postgresMajorVersion}`);
   process.exit(1);
